@@ -51,7 +51,7 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; overflow-x: hidden; } /* la página se sale por un lado al deslizar entre pestañas */
 body {
   margin: 0;
   background: var(--bg);
@@ -59,23 +59,30 @@ body {
   font: 400 16px/1.45 var(--sans);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
+  overflow-x: clip;
 }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; border: 0; background: none; padding: 0; }
 h1, h2, h3, p { margin: 0; }
 [hidden] { display: none !important; }
 
-#app {
+/* Una página es la cabecera más la vista. Lleva clase y no id porque, al deslizar
+   entre pestañas, la vecina se pinta en una segunda página (.peek). */
+.page {
   max-width: 520px;
   margin: 0 auto;
   padding: calc(env(safe-area-inset-top) + 18px) 18px calc(env(safe-area-inset-bottom) + 112px);
   min-height: 100dvh;
 }
+/* El desplazamiento vertical es del navegador; el gesto horizontal lo lleva app.js. */
+#app { touch-action: pan-y pinch-zoom; }
+/* pestaña vecina mientras se desliza: a pantalla completa, por debajo de la barra */
+.peek { position: fixed; top: 0; left: 0; height: 100%; overflow: hidden; pointer-events: none; z-index: 1; will-change: transform; }
 
 /* ---------- cabecera ---------- */
-#top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
-#top .eyebrow { font-size: 13px; color: var(--ink-3); letter-spacing: .06em; text-transform: uppercase; }
-#top h1 { font: 500 30px/1.1 var(--serif); letter-spacing: -.01em; margin-top: 2px; }
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+.head .eyebrow { font-size: 13px; color: var(--ink-3); letter-spacing: .06em; text-transform: uppercase; }
+.head h1 { font: 500 30px/1.1 var(--serif); letter-spacing: -.01em; margin-top: 2px; }
 .sync {
   display: inline-flex; align-items: center; gap: 7px;
   font-size: 12.5px; color: var(--ink-2);
@@ -363,17 +370,17 @@ input[type="date"].field, input[type="month"].field { min-width: 0; max-width: 1
     radial-gradient(60% 34% at 100% 28%, var(--haze-2), transparent 70%),
     radial-gradient(80% 36% at 60% 100%, var(--haze-3), transparent 70%);
 }
-[data-style="neon"] #top h1,
+[data-style="neon"] .head h1,
 [data-style="neon"] .card h2,
 [data-style="neon"] .section h2,
 [data-style="neon"] .monthnav h2,
 [data-style="neon"] .sheet-card h2 { font-weight: 600; letter-spacing: .005em; }
-[data-style="neon"] #top .eyebrow { color: var(--accent); letter-spacing: .16em; font-weight: 500; }
+[data-style="neon"] .head .eyebrow { color: var(--accent); letter-spacing: .16em; font-weight: 500; }
 [data-style="neon"] .label,
 [data-style="neon"] .fl,
 [data-style="neon"] .day { letter-spacing: .1em; }
 
-[data-style="neon"] #top h1 { text-shadow: var(--glow-title); }
+[data-style="neon"] .head h1 { text-shadow: var(--glow-title); }
 [data-style="neon"] .hero { background: linear-gradient(135deg, var(--sage-soft), var(--butter) 68%, var(--lilac)); box-shadow: 0 0 0 1px var(--sage), var(--glow); }
 [data-style="neon"] .hero::after { background: var(--pink); opacity: .55; filter: blur(34px); right: -40px; top: -70px; }
 [data-style="neon"] .dot { box-shadow: 0 0 9px currentColor; }
@@ -485,8 +492,8 @@ input[type="date"].field, input[type="month"].field { min-width: 0; max-width: 1
     radial-gradient(90% 45% at 50% 100%, rgba(255, 46, 147, .38), transparent 70%),
     radial-gradient(70% 35% at 50% 0%, rgba(123, 63, 242, .35), transparent 70%);
 }
-[data-style="retro"] #top h1 { font-weight: 600; font-size: 28px; text-transform: uppercase; letter-spacing: .03em; color: var(--title); text-shadow: var(--title-glow); }
-[data-style="retro"] #top .eyebrow { color: var(--accent); font-weight: 600; letter-spacing: .18em; }
+[data-style="retro"] .head h1 { font-weight: 600; font-size: 28px; text-transform: uppercase; letter-spacing: .03em; color: var(--title); text-shadow: var(--title-glow); }
+[data-style="retro"] .head .eyebrow { color: var(--accent); font-weight: 600; letter-spacing: .18em; }
 [data-style="retro"] .card h2,
 [data-style="retro"] .section h2,
 [data-style="retro"] .monthnav h2,
