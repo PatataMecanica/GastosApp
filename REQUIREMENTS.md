@@ -55,6 +55,11 @@ La app la usan los dos desde su móvil, uno con Android y otra con iPhone.
 - F19. Exportar todo a un archivo e importar una copia.
 - F20. Importar el histórico de 2026 del Excel.
 
+### Diseño
+- F21. Elegir el modo: el del sistema, claro u oscuro.
+- F22. Elegir el estilo visual entre «Pastel», «Neón» y «Ochentas». Todos funcionan en claro y en oscuro.
+- F23. Modo y estilo son de cada móvil: lo que elige uno no cambia lo que ve el otro, y se conservan al cerrar la app.
+
 ## Requisitos no funcionales
 
 - **Multiplataforma**: una sola web instalable en la pantalla de inicio, sin tiendas de aplicaciones.
@@ -62,7 +67,8 @@ La app la usan los dos desde su móvil, uno con Android y otra con iPhone.
 - **Sin conexión**: la app abre y permite apuntar gastos sin cobertura; se envían al recuperarla.
 - **Acceso**: sin cuentas ni inicio de sesión. Cada móvil indica quién lo usa una vez y escribe una palabra clave compartida una vez.
 - **Privacidad**: el repositorio es público, así que no contiene gastos, importes ni la palabra clave.
-- **Diseño**: elegante y cuidado, con colores pastel o mate, en claro y oscuro. Es un requisito de primer orden, no un adorno. En Ajustes cada uno elige en su móvil el modo (el del sistema, claro u oscuro) y el estilo: «Pastel», el original, «Neón», futurista, con verdes y azules de neón y detalles en rosa, u «Ochentas», estridente y muy colorido a propósito.
+- **Diseño**: cuidado en todos los estilos, en claro y oscuro. Es un requisito de primer orden, no un adorno. El estilo por defecto, «Pastel», es elegante, con colores pastel o mate. «Neón» es futurista, con verdes y azules de neón y detalles en rosa. «Ochentas» es estridente y muy colorido a propósito.
+- **Accesibilidad del color**: en cada estilo, los colores de las dos personas deben distinguirse con daltonismo.
 - **Idioma**: español, con importes en euros y formato español.
 - **Mantenimiento**: sin dependencias ni compilación, para que cualquier cambio sea editar un archivo y fusionar.
 
@@ -92,3 +98,5 @@ Decidido expresamente; no añadir sin preguntar.
 - Uso real en iPhone como app instalada: que la palabra clave y los datos locales se conserven.
 - Comportamiento del script en Google con dos móviles escribiendo a la vez.
 - Revisión de las categorías asignadas al histórico.
+- Los estilos «Neón» y «Ochentas» en los móviles reales: solo se han revisado en capturas a 390 px de ancho.
+- En «Neón», los colores de persona (cian y magenta) se distinguen con daltonismo peor que los de los otros dos estilos, sobre todo en claro. Si molesta, cambiar el par.

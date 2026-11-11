@@ -53,7 +53,7 @@ En `localStorage`, bajo la clave `gastos_sa`:
 | `tema` | Modo: `auto` (el del sistema), `light` u `dark` |
 | `estilo` | Estilo visual: `pastel`, `neon` o `retro` (Ochentas) |
 
-`tema` y `estilo` son preferencias de cada móvil y no se envían a la hoja. `applyDesign` (en `app.js`) los traduce a los atributos `data-theme` y `data-style` de `<html>`, de los que cuelgan las variables de color de `styles.css`. Un script mínimo en la cabecera de `index.html` pone esos atributos antes del primer pintado para que no parpadee.
+`tema` y `estilo` son preferencias de cada móvil y no se envían a la hoja ni entran en la copia de seguridad. Ver [Diseño](#diseño).
 
 ## Cálculos
 
@@ -153,6 +153,50 @@ Gana el último que escribe. Si los dos editan el mismo gasto antes de sincroniz
 | Formularios (hoja inferior) | `openGasto`, `openBudget` |
 
 Los gráficos son SVG y HTML hechos a mano. Los nombres de persona se usan como clase CSS para darles color.
+
+En Ajustes, los botones de modo y estilo llevan `data-tema` y `data-estilo`; al pulsarlos se guarda la preferencia, se llama a `applyDesign` y se vuelve a dibujar.
+
+## Diseño
+
+El aspecto depende de dos atributos de `<html>`:
+
+| Atributo | Valores | De dónde sale |
+|---|---|---|
+| `data-theme` | `light`, `dark` | `S.tema`; con `auto` se resuelve con `prefers-color-scheme` |
+| `data-style` | `pastel`, `neon`, `retro` | `S.estilo` |
+
+`applyDesign` (en `app.js`) los pone al arrancar, al cambiar cualquiera de los dos en Ajustes y cuando el sistema pasa de claro a oscuro. También copia el color de fondo a las etiquetas `theme-color`, para que la barra del navegador acompañe. Un script mínimo en la cabecera de `index.html` pone los mismos atributos antes del primer pintado para que no parpadee; si se añade un estilo hay que añadirlo también ahí.
+
+En `styles.css` el CSS no usa `prefers-color-scheme`: todo cuelga de los atributos.
+
+| Selector | Contenido |
+|---|---|
+| `:root` | Variables de Pastel en claro |
+| `:root[data-theme="dark"]` | Pastel en oscuro |
+| `:root[data-style="neon"]` y `…[data-theme="dark"]` | Variables de Neón, claro y oscuro |
+| `:root[data-style="retro"]` y `…[data-theme="dark"]` | Variables de Ochentas, claro y oscuro |
+| `[data-style="…"] .componente` | Remates propios de cada estilo, al final del archivo |
+
+Los componentes se escriben una sola vez con variables (`--bg`, `--surface`, `--ink`, `--accent`, `--shadow`…). Un estilo es, sobre todo, otro juego de valores para esas variables, más unas pocas reglas para lo que una variable no alcanza: el resplandor de fondo, la tarjeta principal, las sombras duras de Ochentas. Los nombres `--sage`, `--butter`, `--lilac` y `--serif` vienen de Pastel; en los otros estilos significan «relleno», «fondo destacado», «aviso» y «tipografía de títulos y cifras».
+
+| Estilo | Títulos y cifras | Persona A / B |
+|---|---|---|
+| Pastel | Fraunces | azul / coral |
+| Neón | Chakra Petch | cian / magenta |
+| Ochentas | Fraunces, en mayúsculas en la cabecera | azul / naranja |
+
+El texto va siempre en DM Sans. Las tipografías se cargan de Google Fonts en `index.html`; el navegador solo descarga las que usa el estilo activo.
+
+Los colores de persona se validaron simulando protanopia, deuteranopia y tritanopia y midiendo la diferencia de color entre los dos, además de su contraste sobre el fondo de las tarjetas.
+
+### Añadir un estilo
+
+1. Añadirlo a `ESTILOS` en `app.js` (clave y nombre visible) y a la comprobación del script de la cabecera de `index.html`.
+2. En `styles.css`, un bloque de variables para claro y otro para oscuro bajo `:root[data-style="clave"]`, y una muestra `.sw.clave` para el botón del selector.
+3. Validar los colores de persona para daltonismo.
+4. Revisar las cuatro pestañas, los formularios y la bienvenida en claro y oscuro a 390 px.
+
+El selector de estilo es una rejilla de tres columnas (`.segm.three`); con un cuarto estilo habría que rehacerla.
 
 ## Limitaciones conocidas
 
