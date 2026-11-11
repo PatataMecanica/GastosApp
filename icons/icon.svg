@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#E3ECE2"/>
+  <circle cx="392" cy="112" r="150" fill="#F3E3B3"/>
+  <circle cx="96" cy="452" r="120" fill="#F7DFD8"/>
+  <text x="256" y="318" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="184" font-weight="500" fill="#2C2826" letter-spacing="-6">S<tspan fill="#D4735F" font-style="italic" font-size="150">&amp;</tspan>A</text>
+</svg>
