@@ -50,6 +50,10 @@ En `localStorage`, bajo la clave `gastos_sa`:
 | `gastos`, `presupuesto` | Copia de la hoja |
 | `queue` | Cambios pendientes de enviar |
 | `lastSync` | Momento de la última sincronización correcta |
+| `tema` | Modo: `auto` (el del sistema), `light` u `dark` |
+| `estilo` | Estilo visual: `pastel` o `neon` |
+
+`tema` y `estilo` son preferencias de cada móvil y no se envían a la hoja. `applyDesign` (en `app.js`) los traduce a los atributos `data-theme` y `data-style` de `<html>`, de los que cuelgan las variables de color de `styles.css`. Un script mínimo en la cabecera de `index.html` pone esos atributos antes del primer pintado para que no parpadee.
 
 ## Cálculos
 
