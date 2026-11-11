@@ -8,6 +8,8 @@
 
 const PEOPLE = ['Adri', 'Stephy'];
 const KEY = 'gastos_sa';
+// Dirección de la hoja (Apps Script). Sin la palabra clave, que solo está en Google y en cada móvil, no responde.
+const API = 'https://script.google.com/macros/s/AKfycbyFACWln9Fn4nlZXXivxa2mYFnR--8yLpWkKGVsfAE6AFLErApynMApFYPsKpraEfEu/exec';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -18,7 +20,7 @@ const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ
 /* ---------- estado ---------- */
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { /* copia local ilegible */ }
-const S = Object.assign({ me: '', url: '', gastos: [], presupuesto: [], queue: [], lastSync: 0 }, saved);
+const S = Object.assign({ me: '', clave: '', gastos: [], presupuesto: [], queue: [], lastSync: 0 }, saved);
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* sin almacenamiento */ } };
 
 const pad = n => String(n).padStart(2, '0');
@@ -122,14 +124,12 @@ function mutate(...ops) {
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
 async function sync() {
-  if (!S.url || ui.syncing) return;
+  if (!S.clave || ui.syncing) return;
   ui.syncing = true; renderTop();
   const sending = S.queue.slice();
   try {
     // Sin cabeceras propias: así el navegador no hace "preflight", que Apps Script no admite.
-    const res = sending.length
-      ? await fetch(S.url, { method: 'POST', body: JSON.stringify({ ops: sending }), redirect: 'follow' })
-      : await fetch(S.url, { redirect: 'follow' });
+    const res = await fetch(API, { method: 'POST', body: JSON.stringify({ clave: S.clave, ops: sending }), redirect: 'follow' });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'Respuesta no válida');
     S.queue = S.queue.slice(sending.length);
@@ -140,9 +140,10 @@ async function sync() {
     ui.err = '';
     save();
   } catch (e) {
-    ui.err = navigator.onLine ? 'No se pudo conectar con la hoja' : 'Sin conexión';
+    ui.err = e.message === 'clave' ? 'Palabra clave incorrecta' : navigator.onLine ? 'No se pudo conectar con la hoja' : 'Sin conexión';
   }
   ui.syncing = false;
+  if (ui.err === 'Palabra clave incorrecta' && S.lastSync) { S.clave = ''; save(); }
   if (!$('#sheet').hidden) renderTop(); else render();
   if (S.queue.length && !ui.err) sync();
 }
@@ -167,8 +168,7 @@ const byDateDesc = (a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : (
 function renderTop() {
   const titles = { inicio: `Hola, ${S.me}`, gastos: 'Gastos', analisis: 'Análisis', ajustes: 'Ajustes' };
   let cls = '', txt = 'Al día';
-  if (!S.url) { cls = 'pend'; txt = 'Solo en este móvil'; }
-  else if (ui.syncing) { cls = 'busy'; txt = 'Sincronizando'; }
+  if (ui.syncing) { cls = 'busy'; txt = 'Sincronizando'; }
   else if (ui.err) { cls = 'err'; txt = ui.err; }
   else if (S.queue.length) { cls = 'pend'; txt = `${S.queue.length} pendiente${S.queue.length > 1 ? 's' : ''}`; }
   $('#top').innerHTML = S.me ? `<div><div class="eyebrow">Gastos S&amp;A</div><h1>${esc(titles[ui.tab])}</h1></div>
@@ -185,7 +185,6 @@ function viewInicio() {
   const big = n => { const [i, d] = nf.format(Math.abs(n)).split(','); return `${i}<small>,${d} €</small>`; };
 
   return `
-    ${!S.url ? `<div class="card notice"><p>Conecta la hoja de Google para compartir los gastos entre los dos móviles.</p><button class="btn sm" data-tab="ajustes">Conectar</button></div>` : ''}
     ${!hasBudget ? `<div class="card notice"><p>Aún no hay presupuesto. Créalo para calcular cuánto ingresa cada uno.</p><button class="btn sm" data-budget>Crear</button></div>` : ''}
     <div class="card hero">
       <div class="label">${esc(monthLabel(ym))}</div>
@@ -375,12 +374,10 @@ function viewAjustes() {
 
     <div class="card">
       <h2>Hoja de Google</h2>
-      <div class="sub">${S.url ? (S.lastSync ? `Conectada. Última sincronización: ${new Date(S.lastSync).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}.` : 'Conectada, pendiente de la primera sincronización.') : 'Pega aquí la dirección de la aplicación web de Apps Script.'}</div>
-      <label class="fl" for="url">Dirección</label>
-      <input class="field" id="url" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(S.url)}" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div class="sub">${ui.err ? esc(ui.err) + '.' : S.lastSync ? `Conectada. Última sincronización: ${new Date(S.lastSync).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}.` : 'Pendiente de la primera sincronización.'}</div>
       <div class="btns">
-        <button class="btn sm" id="saveurl">Guardar y probar</button>
-        ${S.url ? `<button class="btn sm ghost" id="shareurl">Enviar enlace a ${esc(PEOPLE.find(p => p !== S.me) || 'tu pareja')}</button>` : ''}
+        <button class="btn sm ghost" id="syncnow">Sincronizar ahora</button>
+        <button class="btn sm ghost" id="changekey">Cambiar palabra clave</button>
       </div>
     </div>
 
@@ -403,10 +400,32 @@ function viewWelcome() {
     <div class="who">${PEOPLE.map(p => `<button data-me="${p}">${who(p)}</button>`).join('')}</div>
   </div>`;
 }
+function viewKey() {
+  return `<div class="welcome">
+    <div class="logo">Gastos <em>S&amp;A</em></div>
+    <p>Escribe la palabra clave para conectar con vuestra hoja.<br>Solo se pide una vez en este móvil.</p>
+    <form id="fk" autocomplete="off">
+      <input class="field" id="k-clave" type="password" placeholder="Palabra clave" autocapitalize="off" autocorrect="off" spellcheck="false" style="text-align:center">
+      <div class="btns"><button class="btn block" type="submit">Entrar</button></div>
+    </form>
+  </div>`;
+}
+async function submitKey() {
+  const clave = $('#k-clave').value.trim();
+  if (!clave) return toast('Escribe la palabra clave');
+  const btn = $('#fk button'); btn.disabled = true; btn.textContent = 'Comprobando…';
+  S.clave = clave; ui.err = '';
+  await sync();
+  if (ui.err === 'Palabra clave incorrecta') { S.clave = ''; ui.err = ''; save(); render(); return toast('Palabra clave incorrecta'); }
+  save(); render();
+  if (ui.err) toast('Sin conexión: se comprobará al recuperarla');
+}
 function render() {
-  renderTop();
-  $('#nav').hidden = !S.me;
+  const ready = S.me && S.clave;
+  if (ready) renderTop(); else $('#top').innerHTML = '';
+  $('#nav').hidden = !ready;
   if (!S.me) { $('#view').innerHTML = viewWelcome(); return; }
+  if (!S.clave) { if (!$('#fk')) $('#view').innerHTML = viewKey(); return; }
   $$('#nav [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.tab));
   $('#view').innerHTML = { inicio: viewInicio, gastos: viewGastos, analisis: viewAnalisis, ajustes: viewAjustes }[ui.tab]();
 }
@@ -549,7 +568,7 @@ document.addEventListener('click', e => {
   if ('close' in d) return closeSheet();
   if (d.tab) return go(d.tab);
   if (t.id === 'fab') return openGasto();
-  if (t.id === 'syncbtn') { if (S.url) sync(); else go('ajustes'); return; }
+  if (t.id === 'syncbtn' || t.id === 'syncnow') return void sync();
   if (d.edit) return openGasto(d.edit);
   if (d.me) { S.me = d.me; save(); render(); return; }
   if (d.month) { ui.month = shiftYm(ui.month, +d.month); render(); return; }
@@ -571,18 +590,9 @@ document.addEventListener('click', e => {
   if ('browDel' in d) { t.closest('.brow').remove(); return budgetTotals(); }
 
   // ajustes
-  if (t.id === 'saveurl') {
-    const url = $('#url').value.trim();
-    if (url && !/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)) return toast('Debe ser la dirección que termina en /exec');
-    S.url = url; ui.err = ''; save(); render();
-    if (url) sync().then(() => toast(ui.err ? 'No se pudo conectar: revisa la dirección' : 'Conectada')); else toast('Desconectada');
-    return;
-  }
-  if (t.id === 'shareurl') {
-    const link = `${location.origin}${location.pathname}#conectar=${encodeURIComponent(S.url)}`;
-    if (navigator.share) navigator.share({ title: 'Gastos S&A', text: 'Abre este enlace para conectar la app:', url: link }).catch(() => {});
-    else navigator.clipboard?.writeText(link).then(() => toast('Enlace copiado'), () => prompt('Copia este enlace:', link));
-    return;
+  if (t.id === 'changekey') {
+    if (!confirm('Tendrás que volver a escribir la palabra clave en este móvil. ¿Continuar?')) return;
+    S.clave = ''; ui.err = ''; save(); return render();
   }
   if (t.id === 'export') return exportData();
   if (t.id === 'import') return $('#importfile').click();
@@ -606,6 +616,7 @@ document.addEventListener('submit', e => {
   e.preventDefault();
   if (e.target.id === 'fg') submitGasto();
   if (e.target.id === 'fb') submitBudget();
+  if (e.target.id === 'fk') submitKey();
 });
 // detalle del gráfico al tocar o pasar por un mes
 const pickBar = e => {
@@ -620,15 +631,6 @@ document.addEventListener('pointerdown', pickBar);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
 
 /* ---------- arranque ---------- */
-// Enlace de conexión: …/#conectar=<dirección de Apps Script>
-const m = location.hash.match(/^#conectar=(.+)$/);
-if (m) {
-  try {
-    const url = decodeURIComponent(m[1]);
-    if (/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)) { S.url = url; save(); }
-  } catch { /* enlace mal formado */ }
-  history.replaceState(null, '', location.pathname);
-}
 render();
 sync();
 document.addEventListener('visibilitychange', () => { if (!document.hidden && $('#sheet').hidden) sync(); });
