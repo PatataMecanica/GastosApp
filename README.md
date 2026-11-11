@@ -18,13 +18,14 @@ App de gastos compartidos para dos personas. Es una web instalable (PWA): se abr
 3. **Implementar → Nueva implementación → Aplicación web**.
    - Ejecutar como: **Yo**.
    - Quién tiene acceso: **Cualquier usuario**.
-4. Autoriza el script cuando lo pida y copia la **URL de la aplicación web** (termina en `/exec`).
+4. Autoriza el script cuando lo pida y copia la **URL de la aplicación web** (termina en `/exec`). Esa dirección va en la constante `API` de `app.js`.
+5. Pon la palabra clave: **Configuración del proyecto** (el engranaje) → **Propiedades de la secuencia de comandos** → *Añadir propiedad*, con nombre `CLAVE` y como valor una frase larga (cuatro o cinco palabras).
 
 Las pestañas `Gastos` y `Presupuesto` se crean solas. Se pueden editar a mano: la app recoge los cambios en la siguiente sincronización.
 
-> La URL hace de llave: quien la tenga puede leer y escribir en la hoja. No la publiques; se guarda solo en cada móvil.
+> La dirección es pública; lo que protege la hoja es la palabra clave, que solo está en Google y en cada móvil. Sin la propiedad `CLAVE` el script no deja pasar a nadie. No distingue mayúsculas ni espacios de más. Cambiarla no requiere publicar de nuevo.
 
-Si más adelante cambias `Code.gs`, hay que publicar de nuevo: **Implementar → Gestionar implementaciones → editar → Versión: nueva**. Así la URL no cambia.
+Si cambias `Code.gs`, hay que publicar de nuevo: **Implementar → Gestionar implementaciones → editar (lápiz) → Versión: Nueva versión → Implementar**. Así la URL no cambia.
 
 ### 2. Publicar la app en GitHub Pages
 
@@ -33,7 +34,7 @@ Si más adelante cambias `Code.gs`, hay que publicar de nuevo: **Implementar →
 ### 3. En cada móvil
 
 1. Abre la dirección de Pages y elige quién eres.
-2. **Ajustes → Hoja de Google**: pega la URL de `/exec` y pulsa *Guardar y probar*. Con *Enviar enlace* se la pasas a la otra persona ya configurada.
+2. Escribe la palabra clave. Solo se pide una vez por móvil.
 3. Añade la app a la pantalla de inicio:
    - **Android (Chrome):** menú ⋮ → *Añadir a pantalla de inicio* / *Instalar aplicación*.
    - **iPhone (Safari):** botón Compartir → *Añadir a pantalla de inicio*.

@@ -2,7 +2,7 @@
  * Gastos_S&A — API mínima sobre Google Sheets.
  *
  * La hoja de cálculo es la base de datos: una pestaña "Gastos" y otra "Presupuesto",
- * que se crean solas la primera vez. La app lee con GET y escribe con POST.
+ * que se crean solas la primera vez. La app lee y escribe con POST, enviando la palabra clave.
  * Instrucciones de instalación en el README del repositorio.
  */
 
@@ -12,7 +12,7 @@ var COLS_G = ['id', 'fecha', 'concepto', 'importe', 'pagador', 'categoria', 'not
 var COLS_P = ['desde', 'categoria', 'importe'];
 
 function doGet() {
-  return responder_(null);
+  return salida_({ ok: false, error: 'Esta dirección solo la usa la app.' });
 }
 
 function doPost(e) {
@@ -22,7 +22,24 @@ function doPost(e) {
   } catch (err) {
     return salida_({ ok: false, error: 'JSON no válido' });
   }
+  if (!autorizado_(body)) {
+    Utilities.sleep(1500); // frena a quien intente adivinarla
+    return salida_({ ok: false, error: 'clave' });
+  }
   return responder_(body);
+}
+
+/* ---------- palabra clave ---------- */
+// Se guarda en Configuración del proyecto → Propiedades de la secuencia de comandos,
+// con el nombre CLAVE. No está en el código. Si no existe, no se deja pasar a nadie.
+
+function limpia_(s) {
+  return String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function autorizado_(body) {
+  var clave = limpia_(PropertiesService.getScriptProperties().getProperty('CLAVE'));
+  return clave.length > 0 && limpia_(body && body.clave) === clave;
 }
 
 function responder_(body) {
