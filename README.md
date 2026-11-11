@@ -58,6 +58,12 @@ Si cambias `Code.gs`, hay que publicar de nuevo: **Implementar → Gestionar imp
 
 La app guarda una copia en el móvil. Lo que se apunte sin cobertura queda pendiente y se envía solo al recuperar la conexión.
 
+## Documentación
+
+- [`REQUIREMENTS.md`](REQUIREMENTS.md): qué hace la app y qué se dejó fuera.
+- [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md): datos, sincronización, cálculos y seguridad.
+- [`CLAUDE.md`](CLAUDE.md): guía para trabajar en el código.
+
 ## Estructura
 
 | Archivo | Qué es |
