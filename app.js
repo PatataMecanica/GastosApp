@@ -432,8 +432,63 @@ function render() {
 function go(tab) { ui.tab = tab; render(); window.scrollTo(0, 0); }
 
 /* ---------- hoja: gasto ---------- */
-function openSheet(html) { $('.sheet-card').innerHTML = html; $('#sheet').hidden = false; document.body.style.overflow = 'hidden'; }
+function openSheet(html) {
+  const card = $('.sheet-card'), body = $('.sheet-body');
+  card.style.transition = card.style.transform = $('.sheet-bg').style.opacity = '';
+  body.innerHTML = html; $('#sheet').hidden = false; body.scrollTop = 0;
+  document.body.style.overflow = 'hidden';
+}
 function closeSheet() { $('#sheet').hidden = true; document.body.style.overflow = ''; render(); }
+
+// Arrastrar la hoja hacia abajo para cerrarla, desde el asa o desde el contenido
+// cuando está arriba del todo. De paso evita que la página de fondo o la propia
+// hoja se muevan «con goma» en iOS.
+{
+  const sheet = $('#sheet'), card = $('.sheet-card'), body = $('.sheet-body'), bg = $('.sheet-bg');
+  let t0 = null; // { x, y, time, mode: null | 'drag' | 'scroll', grab, inBody }
+  const settle = (y, done) => {
+    card.style.transition = 'transform .2s cubic-bezier(.2, .8, .2, 1)';
+    bg.style.transition = 'opacity .2s';
+    card.style.transform = y ? `translateY(${y}px)` : '';
+    bg.style.opacity = y ? '0' : '';
+    setTimeout(() => { card.style.transition = bg.style.transition = ''; done && done(); }, 210);
+  };
+  sheet.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) { t0 = null; return; }
+    const p = e.touches[0];
+    t0 = { x: p.clientX, y: p.clientY, time: e.timeStamp, mode: null, dy: 0, grab: !!e.target.closest('.sheet-grab'), inBody: !!e.target.closest('.sheet-body') };
+  }, { passive: true });
+  sheet.addEventListener('touchmove', e => {
+    if (!t0) return;
+    const p = e.touches[0], dx = p.clientX - t0.x, dy = p.clientY - t0.y;
+    if (!t0.mode) {
+      if (!dx && !dy) return;
+      const down = dy > 0 && Math.abs(dy) >= Math.abs(dx);
+      const canScroll = t0.inBody && body.scrollHeight > body.clientHeight + 1;
+      if (t0.grab || (t0.inBody && down && body.scrollTop <= 0)) t0.mode = 'drag';
+      else if (canScroll && Math.abs(dy) > Math.abs(dx)) t0.mode = 'scroll';
+      else t0.mode = 'none';
+    }
+    if (t0.mode === 'scroll') return;
+    if (e.cancelable) e.preventDefault();
+    if (t0.mode !== 'drag') return;
+    t0.dy = Math.max(0, dy);
+    card.style.transition = 'none';
+    card.style.transform = `translateY(${t0.dy}px)`;
+    bg.style.opacity = String(Math.max(0, 1 - t0.dy / card.offsetHeight));
+  }, { passive: false });
+  const end = e => {
+    if (!t0 || t0.mode !== 'drag') { t0 = null; return; }
+    const dy = t0.dy, fast = dy > 30 && dy / Math.max(1, e.timeStamp - t0.time) > .6;
+    t0 = null;
+    if (e.type === 'touchend' && (fast || dy > Math.min(140, card.offsetHeight / 3))) {
+      document.activeElement?.blur?.();
+      settle(card.offsetHeight, () => { if (!sheet.hidden) closeSheet(); });
+    } else settle(0);
+  };
+  sheet.addEventListener('touchend', end);
+  sheet.addEventListener('touchcancel', end);
+}
 
 let form = null;
 function openGasto(id) {
