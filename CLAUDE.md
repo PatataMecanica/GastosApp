@@ -46,6 +46,7 @@ node --check app.js           # comprobación de sintaxis
 - **`Code.gs` reescribe las pestañas completas** en cada escritura. Columnas añadidas a mano en la hoja se pierden; si hace falta un campo nuevo, añadirlo a `COLS_G` o `COLS_P`.
 - **Fechas como texto** `AAAA-MM-DD` y meses como `AAAA-MM`. Se comparan como cadenas; no convertir a `Date` para calcular.
 - **Escapar con `esc()`** todo lo que venga de datos al componer HTML.
+- **Las vistas se pintan dos veces al deslizar entre pestañas**: la vecina se compone con `VIEWS[tab]()` en una página temporal (`.peek`) a la que se le quitan los `id`. Dar estilo a lo que hay dentro de las vistas y de la cabecera por clase, no por id, y no dar por hecho que una función `view…` solo se llama desde `render()`.
 - **El reparto es siempre 50/50** y solo hay dos personas (`PEOPLE` en `app.js`). Los colores de cada uno salen del nombre como clase CSS (`.dot.Adri`, `.av.Stephy`).
 
 ## Diseño

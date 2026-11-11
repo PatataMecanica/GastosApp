@@ -183,15 +183,16 @@ function rowHtml(g, withDate) {
 const byDateDesc = (a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : (a.modificado < b.modificado ? 1 : -1));
 
 /* ---------- cabecera ---------- */
-function renderTop() {
+function topHtml(tab) {
   const titles = { inicio: `Hola, ${S.me}`, gastos: 'Gastos', analisis: 'Análisis', ajustes: 'Ajustes' };
   let cls = '', txt = 'Al día';
   if (ui.syncing) { cls = 'busy'; txt = 'Sincronizando'; }
   else if (ui.err) { cls = 'err'; txt = ui.err; }
   else if (S.queue.length) { cls = 'pend'; txt = `${S.queue.length} pendiente${S.queue.length > 1 ? 's' : ''}`; }
-  $('#top').innerHTML = S.me ? `<div><div class="eyebrow">Gastos S&amp;A</div><h1>${esc(titles[ui.tab])}</h1></div>
-    <button class="sync ${cls}" id="syncbtn"><i></i>${esc(txt)}</button>` : '';
+  return `<div><div class="eyebrow">Gastos S&amp;A</div><h1>${esc(titles[tab])}</h1></div>
+    <button class="sync ${cls}" id="syncbtn"><i></i>${esc(txt)}</button>`;
 }
+function renderTop() { $('#top').innerHTML = S.me ? topHtml(ui.tab) : ''; }
 
 /* ---------- inicio ---------- */
 function viewInicio() {
@@ -447,6 +448,8 @@ async function submitKey() {
   save(); render();
   if (ui.err) toast('Sin conexión: se comprobará al recuperarla');
 }
+const VIEWS = { inicio: viewInicio, gastos: viewGastos, analisis: viewAnalisis, ajustes: viewAjustes };
+const TABS = Object.keys(VIEWS); // en el orden de la barra de navegación
 function render() {
   const ready = S.me && S.clave;
   if (ready) renderTop(); else $('#top').innerHTML = '';
@@ -454,9 +457,130 @@ function render() {
   if (!S.me) { $('#view').innerHTML = viewWelcome(); return; }
   if (!S.clave) { if (!$('#fk')) $('#view').innerHTML = viewKey(); return; }
   $$('#nav [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.tab));
-  $('#view').innerHTML = { inicio: viewInicio, gastos: viewGastos, analisis: viewAnalisis, ajustes: viewAjustes }[ui.tab]();
+  $('#view').innerHTML = VIEWS[ui.tab]();
 }
 function go(tab) { ui.tab = tab; render(); window.scrollTo(0, 0); }
+
+/* ---------- deslizar entre pestañas ----------
+   La página (cabecera y vista) sigue al dedo y la pestaña vecina asoma por el lado,
+   pintada en una segunda página fija (.peek) tal como se verá al llegar: arriba del
+   todo. Al soltar, o se completa el cambio con go() o todo vuelve a su sitio. */
+{
+  const app = $('#app');
+  const SLOP = 10;   // px antes de decidir si el gesto es horizontal
+  const EDGE = 24;   // px del borde reservados al gesto «atrás» del navegador
+  const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const calm = matchMedia('(prefers-reduced-motion: reduce)');
+  let g = null;      // gesto en curso: { target, x, y, mode: null | 'swipe', dx, vx, lastX, lastT }
+  let peek = null;  // { el, tab, side }  side: 1 si entra por la derecha, -1 por la izquierda
+  let timer = 0, finish = null;
+  const width = () => document.documentElement.clientWidth;
+
+  // ¿hay algo bajo el dedo que ya se mueva en horizontal por su cuenta?
+  const scrollsX = el => {
+    for (; el && el !== app; el = el.parentElement) {
+      if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true;
+    }
+    return false;
+  };
+  function dropPeek() { if (peek) { peek.el.remove(); peek = null; } }
+  function setPeek(side) {
+    const tab = TABS[TABS.indexOf(ui.tab) + side];
+    if (peek && peek.tab === tab) return;
+    dropPeek();
+    if (!tab) return;
+    const el = document.createElement('div');
+    el.className = 'peek'; el.inert = true; el.setAttribute('aria-hidden', 'true');
+    el.style.width = `${width()}px`;
+    el.innerHTML = `<div class="page"><header class="head">${topHtml(tab)}</header><main>${VIEWS[tab]()}</main></div>`;
+    $$('[id]', el).forEach(n => n.removeAttribute('id')); // los id son de la página de verdad
+    document.body.insertBefore(el, $('#nav'));
+    peek = { el, tab, side };
+  }
+  function place(dx, ms) {
+    const tr = ms ? `transform ${ms}ms cubic-bezier(.2, .8, .2, 1)` : 'none';
+    app.style.transition = tr;
+    app.style.transform = `translate3d(${dx}px, 0, 0)`;
+    if (peek) {
+      peek.el.style.transition = tr;
+      peek.el.style.transform = `translate3d(${dx + peek.side * width()}px, 0, 0)`;
+    }
+  }
+  function reset() {
+    clearTimeout(timer); finish = null;
+    app.style.transition = app.style.transform = app.style.willChange = '';
+    dropPeek();
+  }
+  // Lleva la página hasta su destino y, si toca, cambia de pestaña al llegar.
+  function settle(tab, dx, vx) {
+    const to = tab ? -peek.side * width() : 0;
+    const ms = calm.matches ? 0 : Math.round(Math.min(320, Math.max(160, Math.abs(to - dx) / Math.max(Math.abs(vx), 1.4))));
+    if (tab) $$('#nav [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+    finish = () => { reset(); if (tab) go(tab); };
+    if (!ms) return finish();
+    place(to, ms);
+    timer = setTimeout(finish, ms + 20);
+  }
+
+  // El gesto se escucha en el elemento tocado y no en document: si una sincronización
+  // repinta la vista a medio arrastre, ese elemento sale del documento y sus eventos
+  // ya no suben hasta aquí, pero él los sigue recibiendo.
+  function listen(on) {
+    const fn = on ? 'addEventListener' : 'removeEventListener';
+    g.target[fn]('touchmove', move, { passive: false });
+    g.target[fn]('touchend', end);
+    g.target[fn]('touchcancel', end);
+  }
+  function drop() { if (g) { listen(false); g = null; } }
+  function cancel() { if (g && g.mode === 'swipe') settle(null, g.dx, 0); drop(); }
+
+  document.addEventListener('touchstart', e => {
+    if (g && g.mode === 'swipe') return cancel(); // un segundo dedo: es otra cosa (zoom)
+    if (finish) finish(); // un gesto nuevo no espera a que acabe la animación anterior
+    drop();
+    if (e.touches.length !== 1 || $('#nav').hidden || !$('#sheet').hidden || e.target.closest('#nav')) return;
+    if (e.target.closest('input, textarea, select') || scrollsX(e.target)) return;
+    const p = e.touches[0];
+    if (!standalone() && (p.clientX < EDGE || p.clientX > width() - EDGE)) return;
+    g = { target: e.target, x: p.clientX, y: p.clientY, mode: null, dx: 0, vx: 0, lastX: p.clientX, lastT: e.timeStamp };
+    listen(true);
+  }, { passive: true });
+
+  function move(e) {
+    if (e.touches.length !== 1) return cancel();
+    const p = e.touches[0], dx = p.clientX - g.x, dy = p.clientY - g.y;
+    if (!g.mode) {
+      if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) return;
+      // si el navegador ya está desplazando la página, el gesto es suyo
+      if (!e.cancelable || Math.abs(dx) < Math.abs(dy) * 1.5) return drop();
+      g.mode = 'swipe';
+      g.x = p.clientX; // se parte de aquí para que la página no dé un salto
+      g.lastX = p.clientX; g.lastT = e.timeStamp;
+      app.style.willChange = 'transform';
+      document.activeElement?.blur?.();
+      return e.preventDefault();
+    }
+    if (e.cancelable) e.preventDefault();
+    const dt = e.timeStamp - g.lastT;
+    if (dt > 0) { // velocidad suavizada, en px/ms
+      const v = (p.clientX - g.lastX) / dt;
+      g.vx = g.vx ? .6 * v + .4 * g.vx : v; g.lastX = p.clientX; g.lastT = e.timeStamp;
+    }
+    if (dx) setPeek(dx < 0 ? 1 : -1);
+    g.dx = peek ? Math.max(-width(), Math.min(width(), dx)) : dx * .22; // en los extremos, resistencia de goma
+    place(g.dx, 0);
+  }
+
+  function end(e) {
+    if (g.mode !== 'swipe') return drop();
+    const { dx } = g, vx = e.timeStamp - g.lastT > 90 ? 0 : g.vx; // si el dedo se paró antes de soltar, no hay impulso
+    drop();
+    const along = vx * dx > 0, fling = along && Math.abs(vx) > .35 && Math.abs(dx) > 16;
+    const back = !along && Math.abs(vx) > .35;
+    const commit = e.type === 'touchend' && peek && !back && (fling || Math.abs(dx) > width() * .4);
+    settle(commit ? peek.tab : null, dx, vx);
+  }
+}
 
 /* ---------- hoja: gasto ---------- */
 function openSheet(html) {
