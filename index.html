@@ -22,7 +22,7 @@
   <script>
     try {
       var s = JSON.parse(localStorage.getItem('gastos_sa') || '{}'), h = document.documentElement;
-      h.dataset.style = s.estilo === 'neon' ? 'neon' : 'pastel';
+      h.dataset.style = s.estilo === 'neon' || s.estilo === 'retro' ? s.estilo : 'pastel';
       h.dataset.theme = s.tema === 'light' || s.tema === 'dark' ? s.tema : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     } catch (e) {}
   </script>

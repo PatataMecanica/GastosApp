@@ -50,9 +50,10 @@ node --check app.js           # comprobación de sintaxis
 
 ## Diseño
 
-Importa mucho: una de las usuarias es diseñadora. Hay dos estilos, elegibles en Ajustes junto con el modo (sistema, claro u oscuro):
+Importa mucho: una de las usuarias es diseñadora. Hay tres estilos, elegibles en Ajustes junto con el modo (sistema, claro u oscuro):
 
 - **Pastel** (por defecto): elegante, colores pastel o mate, tipografía Fraunces para títulos y cifras y DM Sans para el texto.
 - **Neón**: futurista, verdes y azules de neón con detalles en rosa, Chakra Petch para títulos y cifras. Vive al final de `styles.css`, bajo `[data-style="neon"]`, y casi todo son variables redefinidas.
+- **Ochentas** (`retro`): estridente y muy colorido a propósito; títulos en rojo neón de noche, atardecer a rayas, sombras duras de colores. Bajo `[data-style="retro"]`, después del Neón.
 
-Usar las variables de `styles.css` en lugar de colores sueltos y comprobar siempre los dos estilos en claro y oscuro a ancho de móvil (390 px). El modo se aplica con `data-theme` en `<html>`, no con `prefers-color-scheme` en el CSS. Los colores de persona de cada estilo están validados para daltonismo; si se cambian, volver a validarlos.
+Usar las variables de `styles.css` en lugar de colores sueltos y comprobar siempre los tres estilos en claro y oscuro a ancho de móvil (390 px). El modo se aplica con `data-theme` en `<html>`, no con `prefers-color-scheme` en el CSS. Los colores de persona de cada estilo están validados para daltonismo; si se cambian, volver a validarlos.
