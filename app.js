@@ -20,8 +20,26 @@ const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ
 /* ---------- estado ---------- */
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { /* copia local ilegible */ }
-const S = Object.assign({ me: '', clave: '', gastos: [], presupuesto: [], queue: [], lastSync: 0 }, saved);
+const S = Object.assign({ me: '', clave: '', gastos: [], presupuesto: [], queue: [], lastSync: 0, tema: 'auto', estilo: 'pastel' }, saved);
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* sin almacenamiento */ } };
+
+/* ---------- diseño: modo y estilo ----------
+   Son preferencias de este móvil: se guardan con el resto del estado local y no viajan a la hoja. */
+const TEMAS = { auto: 'Sistema', light: 'Claro', dark: 'Oscuro' };
+const ESTILOS = { pastel: 'Pastel', neon: 'Neón' };
+const darkMq = matchMedia('(prefers-color-scheme: dark)');
+function applyDesign() {
+  if (!TEMAS[S.tema]) S.tema = 'auto';
+  if (!ESTILOS[S.estilo]) S.estilo = 'pastel';
+  const root = document.documentElement;
+  root.dataset.theme = S.tema === 'auto' ? (darkMq.matches ? 'dark' : 'light') : S.tema;
+  root.dataset.style = S.estilo;
+  // la barra del navegador y la de estado toman el color del fondo
+  const bg = getComputedStyle(root).getPropertyValue('--bg').trim();
+  if (bg) $$('meta[name="theme-color"]').forEach(m => { m.content = bg; });
+}
+applyDesign();
+darkMq.addEventListener?.('change', applyDesign);
 
 const pad = n => String(n).padStart(2, '0');
 const isoDate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -361,6 +379,15 @@ function viewAjustes() {
     </div>
 
     <div class="card">
+      <h2>Diseño</h2>
+      <div class="sub">Cómo se ve la app en este móvil.</div>
+      <span class="fl">Modo</span>
+      <div class="segm three">${Object.entries(TEMAS).map(([k, n]) => `<button class="${S.tema === k ? 'on' : ''}" data-tema="${k}" aria-pressed="${S.tema === k}">${n}</button>`).join('')}</div>
+      <span class="fl">Estilo</span>
+      <div class="segm">${Object.entries(ESTILOS).map(([k, n]) => `<button class="${S.estilo === k ? 'on' : ''}" data-estilo="${k}" aria-pressed="${S.estilo === k}"><i class="sw ${k}"></i>${n}</button>`).join('')}</div>
+    </div>
+
+    <div class="card">
       <h2>Presupuesto mensual</h2>
       <div class="sub">${versions.length ? `Vigente desde ${esc(monthLabel(budgetVersion(ym)))}.` : 'Aún no hay presupuesto.'}</div>
       <div style="margin-top:8px">
@@ -626,6 +653,8 @@ document.addEventListener('click', e => {
   if (t.id === 'syncbtn' || t.id === 'syncnow') return void sync();
   if (d.edit) return openGasto(d.edit);
   if (d.me) { S.me = d.me; save(); render(); return; }
+  if (d.tema) { S.tema = d.tema; save(); applyDesign(); render(); return; }
+  if (d.estilo) { S.estilo = d.estilo; save(); applyDesign(); render(); return; }
   if (d.month) { ui.month = shiftYm(ui.month, +d.month); render(); return; }
   if (d.year) { ui.year = d.year; render(); return; }
   if ('budget' in d) return openBudget();

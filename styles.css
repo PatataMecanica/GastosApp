@@ -17,33 +17,37 @@
   --accent: #3F5B4C;
   --on-accent: #FBF8F3;
   --danger: #B4543F;
+  --warn: #D9B45A;
   --shadow: 0 1px 2px rgba(60, 45, 30, .04), 0 8px 24px rgba(60, 45, 30, .06);
+  --fab-shadow: 0 8px 20px rgba(63, 91, 76, .3);
+  --veil: rgba(30, 24, 20, .38);
   --serif: 'Fraunces', 'Iowan Old Style', Georgia, serif;
   --sans: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --r: 22px;
+  color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1D1B1A;
-    --surface: #262321;
-    --surface-2: #302C29;
-    --ink: #F2ECE4;
-    --ink-2: #B9AFA5;
-    --ink-3: #8A8078;
-    --line: #38332F;
-    --a: #5589BD;
-    --a-soft: #2A3948;
-    --b: #CF6E5E;
-    --b-soft: #4A2F2A;
-    --sage: #6F8C74;
-    --sage-soft: #2B3530;
-    --butter: #5A4E2C;
-    --lilac: #3C3650;
-    --accent: #BFD6C2;
-    --on-accent: #1D241F;
-    --danger: #E08B78;
-    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
-  }
+/* El modo (data-theme) y el estilo (data-style) los pone app.js en <html> según lo elegido en Ajustes. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1D1B1A;
+  --surface: #262321;
+  --surface-2: #302C29;
+  --ink: #F2ECE4;
+  --ink-2: #B9AFA5;
+  --ink-3: #8A8078;
+  --line: #38332F;
+  --a: #5589BD;
+  --a-soft: #2A3948;
+  --b: #CF6E5E;
+  --b-soft: #4A2F2A;
+  --sage: #6F8C74;
+  --sage-soft: #2B3530;
+  --butter: #5A4E2C;
+  --lilac: #3C3650;
+  --accent: #BFD6C2;
+  --on-accent: #1D241F;
+  --danger: #E08B78;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -79,7 +83,7 @@ h1, h2, h3, p { margin: 0; }
   white-space: nowrap;
 }
 .sync i { width: 7px; height: 7px; border-radius: 50%; background: var(--sage); }
-.sync.pend i { background: #D9B45A; }
+.sync.pend i { background: var(--warn); }
 .sync.err i { background: var(--danger); }
 .sync.busy i { animation: pulse 1s infinite; }
 @keyframes pulse { 50% { opacity: .25; } }
@@ -206,6 +210,12 @@ input[type="date"].field, input[type="month"].field { min-width: 0; max-width: 1
 .segm { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--surface-2); border-radius: 16px; padding: 5px; }
 .segm button { padding: 11px; border-radius: 12px; color: var(--ink-2); display: flex; align-items: center; justify-content: center; gap: 8px; }
 .segm button.on { background: var(--surface); color: var(--ink); font-weight: 500; box-shadow: var(--shadow); }
+.segm.three { grid-template-columns: 1fr 1fr 1fr; }
+.segm.three button { padding: 11px 6px; font-size: 15px; }
+/* muestra de cada estilo en su botón: colores fijos a propósito, no dependen del estilo activo */
+.sw { width: 18px; height: 18px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08); }
+.sw.pastel { background: conic-gradient(#A9C2AB 0 33%, #F3E3B3 0 66%, #D4735F 0); }
+.sw.neon { background: conic-gradient(#21E0B8 0 33%, #35C9F0 0 66%, #F0388F 0); }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { padding: 8px 14px; border-radius: 99px; border: 1px solid var(--line); font-size: 14.5px; color: var(--ink-2); background: var(--surface); }
@@ -223,13 +233,13 @@ input[type="date"].field, input[type="month"].field { min-width: 0; max-width: 1
 #nav button { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0; color: var(--ink-3); font-size: 11px; }
 #nav svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 #nav button.on { color: var(--ink); font-weight: 600; }
-#nav #fab { width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: var(--on-accent); justify-content: center; margin: -22px auto 0; box-shadow: 0 8px 20px rgba(63, 91, 76, .3); }
+#nav #fab { width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: var(--on-accent); justify-content: center; margin: -22px auto 0; box-shadow: var(--fab-shadow); }
 #nav #fab svg { width: 24px; height: 24px; stroke-width: 2; }
 #nav #fab:active { transform: scale(.94); }
 
 /* ---------- hoja inferior ---------- */
 .sheet { position: fixed; inset: 0; z-index: 10; display: flex; align-items: flex-end; justify-content: center; }
-.sheet-bg { position: absolute; inset: 0; background: rgba(30, 24, 20, .38); animation: fade .2s; }
+.sheet-bg { position: absolute; inset: 0; background: var(--veil); animation: fade .2s; }
 .sheet-card {
   position: relative; width: 100%; max-width: 520px; max-height: 94dvh; overflow: hidden;
   display: flex; flex-direction: column;
@@ -270,5 +280,117 @@ input[type="date"].field, input[type="month"].field { min-width: 0; max-width: 1
   opacity: 0; pointer-events: none; transition: .25s; z-index: 20; max-width: calc(100% - 40px); text-align: center;
 }
 #toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ============================================================
+   Estilo Neón: ciudad futurista de noche. Verdes y azules de
+   luz de neón con detalles en rosa. Solo cambia variables y
+   unos pocos remates; la estructura es la misma que en Pastel.
+   Colores de persona validados para daltonismo (claro y oscuro).
+   ============================================================ */
+:root[data-style="neon"] {
+  --bg: #EAF4F4;
+  --surface: #FAFEFE;
+  --surface-2: #DDECEE;
+  --ink: #0B2530;
+  --ink-2: #44626C;
+  --ink-3: #5F7C86;
+  --line: #CFE2E5;
+  --a: #12A0C8;
+  --a-soft: #D3ECF7;
+  --b: #B81870;
+  --b-soft: #FBDCEC;
+  --sage: #14B88F;
+  --sage-soft: #D2F3EA;
+  --butter: #BFE6F5;
+  --lilac: #F6DCEF;
+  --accent: #0A7F74;
+  --on-accent: #F2FFFC;
+  --danger: #C8452F;
+  --warn: #D99A1E;
+  --pink: #E0338A;
+  --on-pink: #FFFFFF;
+  --shadow: 0 0 0 1px var(--line), 0 8px 24px rgba(11, 60, 80, .07);
+  --fab-shadow: 0 8px 22px rgba(224, 51, 138, .38);
+  --glow: 0 0 0 0 transparent;
+  --glow-text: none;
+  --haze-1: rgba(20, 184, 143, .16);
+  --haze-2: rgba(18, 160, 200, .14);
+  --haze-3: rgba(224, 51, 138, .08);
+  --veil: rgba(8, 30, 40, .4);
+  --serif: 'Chakra Petch', 'DM Sans', system-ui, sans-serif;
+  --r: 16px;
+}
+:root[data-style="neon"][data-theme="dark"] {
+  --bg: #070D14;
+  --surface: #0E1A24;
+  --surface-2: #152633;
+  --ink: #E4F7F5;
+  --ink-2: #9CBFC4;
+  --ink-3: #6B8E96;
+  --line: #1D3A46;
+  --a: #5CE1F5;
+  --a-soft: #10364A;
+  --b: #F0388F;
+  --b-soft: #45183A;
+  --sage: #2EE6A6;
+  --sage-soft: #0D2F2C;
+  --butter: #123A63;
+  --lilac: #3A1A4A;
+  --accent: #21E0B8;
+  --on-accent: #04161A;
+  --danger: #FF7A59;
+  --warn: #F2C14E;
+  --pink: #FF4FA3;
+  --on-pink: #1A0612;
+  --shadow: 0 0 0 1px var(--line), 0 10px 28px rgba(0, 0, 0, .45);
+  --fab-shadow: 0 0 0 1px rgba(255, 79, 163, .5), 0 0 22px rgba(255, 79, 163, .55);
+  --glow: 0 0 18px rgba(33, 224, 184, .35);
+  --glow-text: 0 0 22px rgba(46, 230, 166, .45);
+  --haze-1: rgba(33, 224, 184, .16);
+  --haze-2: rgba(53, 140, 240, .16);
+  --haze-3: rgba(255, 79, 163, .12);
+  --veil: rgba(2, 6, 10, .62);
+}
+/* resplandor de fondo, como las luces de la ciudad entre la niebla */
+[data-style="neon"] body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(70% 38% at 10% 0%, var(--haze-1), transparent 70%),
+    radial-gradient(60% 34% at 100% 28%, var(--haze-2), transparent 70%),
+    radial-gradient(80% 36% at 60% 100%, var(--haze-3), transparent 70%);
+}
+[data-style="neon"] #top h1,
+[data-style="neon"] .card h2,
+[data-style="neon"] .section h2,
+[data-style="neon"] .monthnav h2,
+[data-style="neon"] .sheet-card h2 { font-weight: 600; letter-spacing: .005em; }
+[data-style="neon"] #top .eyebrow { color: var(--accent); letter-spacing: .16em; font-weight: 500; }
+[data-style="neon"] .label,
+[data-style="neon"] .fl,
+[data-style="neon"] .day { letter-spacing: .1em; }
+
+[data-style="neon"] .hero { background: linear-gradient(135deg, var(--sage-soft), var(--butter)); box-shadow: 0 0 0 1px var(--line), var(--glow); }
+[data-style="neon"] .hero::after { background: var(--pink); opacity: .32; filter: blur(34px); right: -40px; top: -70px; }
+[data-style="neon"] .hero .big { text-shadow: var(--glow-text); }
+[data-style="neon"] .kpi.wide { background: linear-gradient(135deg, var(--butter), var(--lilac)); box-shadow: 0 0 0 1px var(--line); }
+[data-style="neon"] .notice { box-shadow: 0 0 0 1px var(--line); }
+
+[data-style="neon"] .btn:not(.ghost):not(.danger),
+[data-style="neon"] .pill.on { box-shadow: var(--glow); }
+[data-style="neon"] .segm { border-radius: 12px; }
+[data-style="neon"] .segm button { border-radius: 8px; }
+[data-style="neon"] .segm button.on { box-shadow: 0 0 0 1px var(--sage), var(--glow); }
+[data-style="neon"] .field { border-radius: 10px; }
+[data-style="neon"] .track .fill { background: linear-gradient(90deg, var(--accent), var(--sage)); }
+[data-style="neon"] .sync i { box-shadow: 0 0 8px currentColor; color: var(--sage); }
+[data-style="neon"] .sync.pend i { color: var(--warn); }
+[data-style="neon"] .sync.err i { color: var(--danger); }
+
+[data-style="neon"] #nav { border-radius: 20px; }
+[data-style="neon"] #nav button.on { color: var(--accent); }
+[data-style="neon"] #nav #fab { background: var(--pink); color: var(--on-pink); border-radius: 18px; }
+[data-style="neon"] .sheet-card { border-radius: 20px 20px 0 0; box-shadow: 0 -1px 0 var(--line); }
+[data-style="neon"] .welcome .logo { font-weight: 600; }
+[data-style="neon"] .welcome .logo em { font-style: normal; color: var(--pink); }
 
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
