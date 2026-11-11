@@ -62,7 +62,7 @@ La app la usan los dos desde su móvil, uno con Android y otra con iPhone.
 - **Sin conexión**: la app abre y permite apuntar gastos sin cobertura; se envían al recuperarla.
 - **Acceso**: sin cuentas ni inicio de sesión. Cada móvil indica quién lo usa una vez y escribe una palabra clave compartida una vez.
 - **Privacidad**: el repositorio es público, así que no contiene gastos, importes ni la palabra clave.
-- **Diseño**: elegante y cuidado, con colores pastel o mate, en claro y oscuro. Es un requisito de primer orden, no un adorno. En Ajustes cada uno elige en su móvil el modo (el del sistema, claro u oscuro) y el estilo: «Pastel», el original, o «Neón», futurista, con verdes y azules de neón y detalles en rosa.
+- **Diseño**: elegante y cuidado, con colores pastel o mate, en claro y oscuro. Es un requisito de primer orden, no un adorno. En Ajustes cada uno elige en su móvil el modo (el del sistema, claro u oscuro) y el estilo: «Pastel», el original, «Neón», futurista, con verdes y azules de neón y detalles en rosa, u «Ochentas», estridente y muy colorido a propósito.
 - **Idioma**: español, con importes en euros y formato español.
 - **Mantenimiento**: sin dependencias ni compilación, para que cualquier cambio sea editar un archivo y fusionar.
 

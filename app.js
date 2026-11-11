@@ -26,7 +26,7 @@ const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch
 /* ---------- diseño: modo y estilo ----------
    Son preferencias de este móvil: se guardan con el resto del estado local y no viajan a la hoja. */
 const TEMAS = { auto: 'Sistema', light: 'Claro', dark: 'Oscuro' };
-const ESTILOS = { pastel: 'Pastel', neon: 'Neón' };
+const ESTILOS = { pastel: 'Pastel', neon: 'Neón', retro: 'Ochentas' };
 const darkMq = matchMedia('(prefers-color-scheme: dark)');
 function applyDesign() {
   if (!TEMAS[S.tema]) S.tema = 'auto';
@@ -384,7 +384,7 @@ function viewAjustes() {
       <span class="fl">Modo</span>
       <div class="segm three">${Object.entries(TEMAS).map(([k, n]) => `<button class="${S.tema === k ? 'on' : ''}" data-tema="${k}" aria-pressed="${S.tema === k}">${n}</button>`).join('')}</div>
       <span class="fl">Estilo</span>
-      <div class="segm">${Object.entries(ESTILOS).map(([k, n]) => `<button class="${S.estilo === k ? 'on' : ''}" data-estilo="${k}" aria-pressed="${S.estilo === k}"><i class="sw ${k}"></i>${n}</button>`).join('')}</div>
+      <div class="segm three styles">${Object.entries(ESTILOS).map(([k, n]) => `<button class="${S.estilo === k ? 'on' : ''}" data-estilo="${k}" aria-pressed="${S.estilo === k}"><i class="sw ${k}"></i>${n}</button>`).join('')}</div>
     </div>
 
     <div class="card">

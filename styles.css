@@ -215,6 +215,8 @@ input[type="date"].field, input[type="month"].field { min-width: 0; max-width: 1
 /* muestra de cada estilo en su botón: colores fijos a propósito, no dependen del estilo activo */
 .sw { width: 18px; height: 18px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08); }
 .sw.pastel { background: conic-gradient(#A9C2AB 0 33%, #F3E3B3 0 66%, #D4735F 0); }
+.sw.retro { background: conic-gradient(#FF2E93 0 33%, #FFD23F 0 66%, #19C8F0 0); }
+.segm.styles button { flex-direction: column; gap: 6px; }
 .sw.neon { background: conic-gradient(#21E0B8 0 33%, #35C9F0 0 66%, #F0388F 0); }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -288,67 +290,69 @@ input[type="date"].field, input[type="month"].field { min-width: 0; max-width: 1
    Colores de persona validados para daltonismo (claro y oscuro).
    ============================================================ */
 :root[data-style="neon"] {
-  --bg: #EAF4F4;
-  --surface: #FAFEFE;
-  --surface-2: #DDECEE;
+  --bg: #E6F6F5;
+  --surface: #FAFFFE;
+  --surface-2: #D6EFEF;
   --ink: #0B2530;
   --ink-2: #44626C;
   --ink-3: #5F7C86;
-  --line: #CFE2E5;
+  --line: #BFE3E3;
   --a: #12A0C8;
   --a-soft: #D3ECF7;
   --b: #B81870;
   --b-soft: #FBDCEC;
-  --sage: #14B88F;
-  --sage-soft: #D2F3EA;
-  --butter: #BFE6F5;
-  --lilac: #F6DCEF;
+  --sage: #10C898;
+  --sage-soft: #C4F5E8;
+  --butter: #B0E4FA;
+  --lilac: #FAD3EC;
   --accent: #0A7F74;
   --on-accent: #F2FFFC;
   --danger: #C8452F;
   --warn: #D99A1E;
-  --pink: #E0338A;
+  --pink: #EC1E8C;
   --on-pink: #FFFFFF;
-  --shadow: 0 0 0 1px var(--line), 0 8px 24px rgba(11, 60, 80, .07);
-  --fab-shadow: 0 8px 22px rgba(224, 51, 138, .38);
-  --glow: 0 0 0 0 transparent;
+  --shadow: 0 0 0 1px var(--line), 0 8px 24px rgba(16, 200, 152, .13);
+  --fab-shadow: 0 0 0 4px rgba(236, 30, 140, .14), 0 8px 24px rgba(236, 30, 140, .5);
+  --glow: 0 6px 20px rgba(10, 170, 150, .38);
   --glow-text: none;
-  --haze-1: rgba(20, 184, 143, .16);
-  --haze-2: rgba(18, 160, 200, .14);
-  --haze-3: rgba(224, 51, 138, .08);
+  --glow-title: none;
+  --haze-1: rgba(16, 200, 152, .30);
+  --haze-2: rgba(18, 160, 220, .24);
+  --haze-3: rgba(236, 30, 140, .16);
   --veil: rgba(8, 30, 40, .4);
   --serif: 'Chakra Petch', 'DM Sans', system-ui, sans-serif;
   --r: 16px;
 }
 :root[data-style="neon"][data-theme="dark"] {
-  --bg: #070D14;
-  --surface: #0E1A24;
-  --surface-2: #152633;
-  --ink: #E4F7F5;
-  --ink-2: #9CBFC4;
-  --ink-3: #6B8E96;
-  --line: #1D3A46;
+  --bg: #0A1522;
+  --surface: #11222F;
+  --surface-2: #193343;
+  --ink: #EAFDFB;
+  --ink-2: #A9CDD2;
+  --ink-3: #74A0A8;
+  --line: #1F5560;
   --a: #5CE1F5;
-  --a-soft: #10364A;
+  --a-soft: #123E55;
   --b: #F0388F;
-  --b-soft: #45183A;
-  --sage: #2EE6A6;
-  --sage-soft: #0D2F2C;
-  --butter: #123A63;
-  --lilac: #3A1A4A;
-  --accent: #21E0B8;
+  --b-soft: #501A42;
+  --sage: #3DFFB5;
+  --sage-soft: #0E443E;
+  --butter: #134C92;
+  --lilac: #4F1D63;
+  --accent: #1FF5C8;
   --on-accent: #04161A;
   --danger: #FF7A59;
-  --warn: #F2C14E;
-  --pink: #FF4FA3;
+  --warn: #FFD154;
+  --pink: #FF3DA0;
   --on-pink: #1A0612;
-  --shadow: 0 0 0 1px var(--line), 0 10px 28px rgba(0, 0, 0, .45);
-  --fab-shadow: 0 0 0 1px rgba(255, 79, 163, .5), 0 0 22px rgba(255, 79, 163, .55);
-  --glow: 0 0 18px rgba(33, 224, 184, .35);
-  --glow-text: 0 0 22px rgba(46, 230, 166, .45);
-  --haze-1: rgba(33, 224, 184, .16);
-  --haze-2: rgba(53, 140, 240, .16);
-  --haze-3: rgba(255, 79, 163, .12);
+  --shadow: 0 0 0 1px rgba(64, 230, 220, .34), 0 0 24px rgba(31, 245, 200, .11), 0 10px 28px rgba(0, 0, 0, .4);
+  --fab-shadow: 0 0 0 1px rgba(255, 61, 160, .8), 0 0 18px rgba(255, 61, 160, .8), 0 0 46px rgba(255, 61, 160, .45);
+  --glow: 0 0 14px rgba(31, 245, 200, .55), 0 0 38px rgba(31, 245, 200, .28);
+  --glow-text: 0 0 10px rgba(61, 255, 181, .55), 0 0 32px rgba(61, 255, 181, .4);
+  --glow-title: 0 0 16px rgba(92, 225, 245, .6);
+  --haze-1: rgba(31, 245, 200, .30);
+  --haze-2: rgba(40, 140, 255, .30);
+  --haze-3: rgba(255, 61, 160, .24);
   --veil: rgba(2, 6, 10, .62);
 }
 /* resplandor de fondo, como las luces de la ciudad entre la niebla */
@@ -369,11 +373,17 @@ input[type="date"].field, input[type="month"].field { min-width: 0; max-width: 1
 [data-style="neon"] .fl,
 [data-style="neon"] .day { letter-spacing: .1em; }
 
-[data-style="neon"] .hero { background: linear-gradient(135deg, var(--sage-soft), var(--butter)); box-shadow: 0 0 0 1px var(--line), var(--glow); }
-[data-style="neon"] .hero::after { background: var(--pink); opacity: .32; filter: blur(34px); right: -40px; top: -70px; }
+[data-style="neon"] #top h1 { text-shadow: var(--glow-title); }
+[data-style="neon"] .hero { background: linear-gradient(135deg, var(--sage-soft), var(--butter) 68%, var(--lilac)); box-shadow: 0 0 0 1px var(--sage), var(--glow); }
+[data-style="neon"] .hero::after { background: var(--pink); opacity: .55; filter: blur(34px); right: -40px; top: -70px; }
+[data-style="neon"] .dot { box-shadow: 0 0 9px currentColor; }
+[data-style="neon"] .dot.Adri { color: var(--a); }
+[data-style="neon"] .dot.Stephy { color: var(--b); }
+[data-style="neon"] .track .fill { box-shadow: 0 0 10px var(--sage); }
+[data-style="neon"] #nav button.on { text-shadow: var(--glow-title); }
 [data-style="neon"] .hero .big { text-shadow: var(--glow-text); }
-[data-style="neon"] .kpi.wide { background: linear-gradient(135deg, var(--butter), var(--lilac)); box-shadow: 0 0 0 1px var(--line); }
-[data-style="neon"] .notice { box-shadow: 0 0 0 1px var(--line); }
+[data-style="neon"] .kpi.wide { background: linear-gradient(135deg, var(--butter), var(--lilac)); box-shadow: 0 0 0 1px var(--pink), 0 0 22px var(--haze-3); }
+[data-style="neon"] .notice { box-shadow: 0 0 0 1px var(--pink); }
 
 [data-style="neon"] .btn:not(.ghost):not(.danger),
 [data-style="neon"] .pill.on { box-shadow: var(--glow); }
@@ -392,5 +402,150 @@ input[type="date"].field, input[type="month"].field { min-width: 0; max-width: 1
 [data-style="neon"] .sheet-card { border-radius: 20px 20px 0 0; box-shadow: 0 -1px 0 var(--line); }
 [data-style="neon"] .welcome .logo { font-weight: 600; }
 [data-style="neon"] .welcome .logo em { font-style: normal; color: var(--pink); }
+
+/* ============================================================
+   Estilo Ochentas: neón rojo sobre la noche, atardecer de
+   videoclub, sombras duras y colores a todo volumen. Estridente
+   a propósito. Mismo esqueleto que los otros dos estilos.
+   Colores de persona (azul y naranja) validados para daltonismo.
+   ============================================================ */
+:root[data-style="retro"] {
+  --bg: #FFF1CC;
+  --surface: #FFFDF7;
+  --surface-2: #F1E0FF;
+  --ink: #1B0B3A;
+  --ink-2: #4E3A78;
+  --ink-3: #7A66A6;
+  --line: #E3CFF5;
+  --a: #1F6BFF;
+  --a-soft: #D6E4FF;
+  --b: #F25C05;
+  --b-soft: #FFE0CC;
+  --sage: #00B8A0;
+  --sage-soft: #C9F7EE;
+  --butter: #FFD23F;
+  --lilac: #FFC2E2;
+  --accent: #E6007E;
+  --on-accent: #FFFFFF;
+  --danger: #D4141C;
+  --warn: #E0A100;
+  --edge: #1B0B3A;
+  --pop-1: #FF2E93;
+  --pop-2: #19C8F0;
+  --pop-3: #FFC800;
+  --title: #1B0B3A;
+  --title-glow: 2px 2px 0 #FF2E93, 4px 4px 0 #19C8F0;
+  --fab: #FFD23F;
+  --on-fab: #1B0B3A;
+  --shadow: 0 0 0 2px var(--edge), 3px 3px 0 2px var(--pop-1);
+  --fab-shadow: 0 0 0 2px var(--edge), 4px 4px 0 2px var(--pop-1);
+  --veil: rgba(27, 11, 58, .5);
+  --r: 14px;
+}
+:root[data-style="retro"][data-theme="dark"] {
+  --bg: #140A26;
+  --surface: #21103D;
+  --surface-2: #2E1856;
+  --ink: #FFF4E0;
+  --ink-2: #D2B8F0;
+  --ink-3: #A58BD0;
+  --line: #4B2A8A;
+  --a: #38C6FF;
+  --a-soft: #123A66;
+  --b: #FF8A1F;
+  --b-soft: #5A2A10;
+  --sage: #19F0C8;
+  --sage-soft: #0F4A4A;
+  --butter: #7A1FA8;
+  --lilac: #5B1E7E;
+  --accent: #FF2E93;
+  --on-accent: #1A0420;
+  --danger: #FF4D4D;
+  --warn: #FFD23F;
+  --edge: #7B3FF2;
+  --pop-1: #FF2E93;
+  --pop-2: #19C8F0;
+  --pop-3: #FFD23F;
+  --title: #FF4545;
+  --title-glow: 0 0 8px rgba(255, 40, 40, .9), 0 0 26px rgba(255, 30, 60, .65);
+  --on-fab: #1A0420;
+  --veil: rgba(8, 2, 18, .7);
+}
+/* de día, topos; de noche, cuadrícula hacia el horizonte */
+[data-style="retro"] body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(circle, rgba(255, 46, 147, .22) 2.5px, transparent 3px) 0 0 / 26px 26px,
+    radial-gradient(circle, rgba(25, 200, 240, .25) 2.5px, transparent 3px) 13px 13px / 26px 26px;
+}
+[data-style="retro"][data-theme="dark"] body::before {
+  background:
+    linear-gradient(rgba(255, 46, 147, .16) 1px, transparent 1px) 0 0 / 34px 34px,
+    linear-gradient(90deg, rgba(25, 200, 240, .13) 1px, transparent 1px) 0 0 / 34px 34px,
+    radial-gradient(90% 45% at 50% 100%, rgba(255, 46, 147, .38), transparent 70%),
+    radial-gradient(70% 35% at 50% 0%, rgba(123, 63, 242, .35), transparent 70%);
+}
+[data-style="retro"] #top h1 { font-weight: 600; font-size: 28px; text-transform: uppercase; letter-spacing: .03em; color: var(--title); text-shadow: var(--title-glow); }
+[data-style="retro"] #top .eyebrow { color: var(--accent); font-weight: 600; letter-spacing: .18em; }
+[data-style="retro"] .card h2,
+[data-style="retro"] .section h2,
+[data-style="retro"] .monthnav h2,
+[data-style="retro"] .sheet-card h2 { font-weight: 600; }
+[data-style="retro"] .label,
+[data-style="retro"] .fl,
+[data-style="retro"] .day { font-weight: 600; letter-spacing: .1em; }
+
+/* tarjetas con sombra dura; el color va rotando */
+[data-style="retro"] .card,
+[data-style="retro"] .list { --pop: var(--pop-1); box-shadow: 0 0 0 2px var(--edge), 5px 5px 0 2px var(--pop); }
+[data-style="retro"] .card:nth-child(3n+2),
+[data-style="retro"] .list { --pop: var(--pop-2); }
+[data-style="retro"] .card:nth-child(3n) { --pop: var(--pop-3); }
+[data-style="retro"] .duo, [data-style="retro"] .kpis { gap: 16px; margin-bottom: 18px; }
+[data-style="retro"] .card, [data-style="retro"] .list { margin-bottom: 18px; }
+[data-style="retro"] .duo .card, [data-style="retro"] .kpis .card { margin-bottom: 0; }
+
+/* cabecera: atardecer con su sol a rayas */
+[data-style="retro"] .hero { background: linear-gradient(165deg, #FF2E93 0%, #FF7A1F 55%, #FFD23F 100%); color: #1A0420; --pop: var(--pop-2); }
+[data-style="retro"] .hero .label, [data-style="retro"] .hero .sub { color: #3A0A2E; }
+[data-style="retro"] .hero::after {
+  right: -34px; top: -44px; width: 170px; height: 170px; opacity: .85;
+  background: repeating-linear-gradient(180deg, #FFF3B0 0 11px, transparent 11px 16px);
+}
+[data-style="retro"] .hero .big { font-weight: 600; text-shadow: 2px 2px 0 rgba(255, 244, 224, .55); }
+[data-style="retro"] .kpi.wide { background: linear-gradient(135deg, #5B1FD6, #D4147A); color: #FFFFFF; --pop: var(--pop-3); }
+[data-style="retro"] .kpi.wide .label, [data-style="retro"] .kpi.wide .sub { color: rgba(255, 255, 255, .88); }
+[data-style="retro"] .notice { --pop: var(--pop-3); }
+
+[data-style="retro"] .btn { border-radius: 12px; }
+[data-style="retro"] .btn:not(.danger) { box-shadow: 0 0 0 2px var(--edge), 3px 3px 0 2px var(--pop-2); }
+[data-style="retro"] .btn:not(.danger):active { transform: translate(2px, 2px); box-shadow: 0 0 0 2px var(--edge), 1px 1px 0 2px var(--pop-2); }
+[data-style="retro"] .btns { gap: 14px; }
+[data-style="retro"] .pill.on { box-shadow: 0 0 0 2px var(--edge), 3px 3px 0 2px var(--pop-3); }
+[data-style="retro"] .pills { gap: 12px; }
+[data-style="retro"] .chip { border: 2px solid var(--edge); }
+[data-style="retro"] .chip.on { background: var(--butter); border-color: var(--edge); }
+[data-style="retro"] .segm { border-radius: 12px; }
+[data-style="retro"] .segm button { border-radius: 8px; }
+[data-style="retro"] .segm button.on { box-shadow: 0 0 0 2px var(--edge), 2px 2px 0 2px var(--pop-1); }
+[data-style="retro"] .field { border: 2px solid var(--edge); border-radius: 10px; }
+[data-style="retro"] .field:focus { border-color: var(--accent); box-shadow: 3px 3px 0 var(--pop-2); }
+[data-style="retro"] .track { height: 10px; }
+[data-style="retro"] .track .fill { background: linear-gradient(90deg, var(--pop-1), var(--pop-3), var(--pop-2)); }
+[data-style="retro"] .dot { box-shadow: 0 0 0 2px var(--edge); }
+[data-style="retro"] .av { box-shadow: 0 0 0 2px var(--edge); }
+[data-style="retro"] .sync { box-shadow: 0 0 0 2px var(--edge), 3px 3px 0 2px var(--pop-3); }
+[data-style="retro"] .monthnav button { --pop-1: var(--pop-2); box-shadow: 0 0 0 2px var(--edge), 3px 3px 0 2px var(--pop-2); }
+
+[data-style="retro"] #nav { border-radius: 18px; box-shadow: 0 0 0 2px var(--edge), 4px 4px 0 2px var(--pop-2); }
+[data-style="retro"] #nav button.on { color: var(--accent); }
+[data-style="retro"] #nav #fab { background: var(--fab); color: var(--on-fab); border-radius: 16px; }
+[data-style="retro"] .sheet-card { border-radius: 18px 18px 0 0; box-shadow: 0 -2px 0 var(--edge), 0 -7px 0 var(--pop-1); }
+[data-style="retro"] .amount input { color: var(--title); text-shadow: var(--title-glow); font-weight: 600; }
+[data-style="retro"] .amount input::placeholder { text-shadow: none; }
+[data-style="retro"] .welcome .logo { font-weight: 600; text-transform: uppercase; color: var(--title); text-shadow: var(--title-glow); }
+[data-style="retro"] .welcome .logo em { color: inherit; }
+[data-style="retro"] .welcome .who button { box-shadow: 0 0 0 2px var(--edge), 5px 5px 0 2px var(--pop-2); }
+[data-style="retro"] #toast { box-shadow: 3px 3px 0 var(--pop-1); }
 
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
