@@ -101,11 +101,19 @@ const KEYWORDS = {
 };
 function categoriesFor(ym) {
   const out = budgetItems(ym).map(r => r.categoria);
+  const more = c => { if (!out.some(o => norm(o) === norm(c))) out.push(c); };
+  budgetItems(thisYm()).forEach(r => more(r.categoria)); // partidas creadas después de ese mes
   const freq = {};
   for (const g of S.gastos) if (g.categoria) freq[g.categoria] = (freq[g.categoria] || 0) + 1;
   for (const m of S.movs) if (m.categoria && m.categoria !== SKIP) freq[m.categoria] = (freq[m.categoria] || 0) + 1;
-  Object.keys(freq).sort((a, b) => freq[b] - freq[a]).forEach(c => { if (!out.some(o => norm(o) === norm(c))) out.push(c); });
+  Object.keys(freq).sort((a, b) => freq[b] - freq[a]).forEach(more);
   return out;
+}
+// Una categoría escrita a mano se guarda con el nombre de la que ya exista, aunque cambien
+// mayúsculas o tildes: en Análisis se agrupa por el nombre exacto.
+function canonCat(c, ym) {
+  c = String(c || '').trim();
+  return [...categoriesFor(ym), SKIP].find(k => norm(k) === norm(c)) || c;
 }
 // Con strict no se usan las palabras clave: sirve para clasificar sin que nadie lo revise.
 function guessCategory(concepto, ym, strict) {
@@ -916,7 +924,7 @@ function submitGasto() {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return toast('Elige la fecha');
   const g = {
     id: form.id || uid(), fecha, concepto, importe, pagador: form.pagador,
-    categoria: (form.categoria || '').trim(), nota: $('#f-not').value.trim(), modificado: new Date().toISOString(),
+    categoria: canonCat(form.categoria, fecha.slice(0, 7)), nota: $('#f-not').value.trim(), modificado: new Date().toISOString(),
   };
   const isNew = !form.id;
   $('#sheet').hidden = true; document.body.style.overflow = '';
@@ -1063,7 +1071,7 @@ function paintPick() {
   $('#p-texto').hidden = !$('#p-rule').checked;
 }
 function submitPick() {
-  const categoria = (pick.categoria || '').trim();
+  const categoria = canonCat(pick.categoria, pick.ym);
   const texto = $('#p-rule').checked ? $('#p-texto').value.trim() : '';
   if ($('#p-rule').checked && norm(texto).length < 3) return toast('El texto de la regla es demasiado corto');
   const ids = new Set(pick.ids), ops = [];

@@ -44,7 +44,8 @@ La app la usan los dos desde su móvil, uno con Android y otra con iPhone.
 
 ### Categorías
 - F6. Las partidas del presupuesto son las categorías habituales.
-- F7. Se puede escribir a mano cualquier otra categoría; no es una lista cerrada.
+- F7. Se puede escribir a mano cualquier otra categoría; no es una lista cerrada. Si coincide con una existente salvo mayúsculas o tildes, se guarda con el nombre de la existente.
+- F32. Al elegir categoría se ofrecen las partidas del presupuesto del mes del gasto y también las del presupuesto actual, para poder usar una partida nueva en gastos anteriores.
 - F8. La app sugiere la categoría a partir del concepto, y la sugerencia se puede cambiar.
 
 ### Resumen del mes

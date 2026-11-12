@@ -108,6 +108,10 @@ La media por categoría suma dos medias: lo adelantado en el año entre los mese
 2. `No contar` si el importe es positivo y el tipo no es un reembolso.
 3. `guessCategory` en modo estricto: mismo concepto ya clasificado en un adelanto, o nombre de categoría dentro del concepto. Sin palabras clave, porque aquí nadie revisa la sugerencia.
 
+### Nombres de categoría
+
+Análisis agrupa por el nombre exacto de la categoría y lo compara con la partida del mismo nombre. Para que no se dupliquen filas, `canonCat` sustituye lo escrito a mano por la categoría existente que solo difiera en mayúsculas o tildes. `categoriesFor(mes)` ofrece las partidas vigentes en ese mes, luego las del presupuesto actual y luego las ya usadas.
+
 ### Sugerencia de categoría
 
 `guessCategory(concepto, mes)` prueba, en este orden:
