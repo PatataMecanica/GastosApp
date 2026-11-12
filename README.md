@@ -8,6 +8,7 @@ App de gastos compartidos para dos personas. Es una web instalable (PWA): se abr
 - Cuando alguien paga algo común de su bolsillo, lo apunta como **gasto adelantado**.
 - Al mes siguiente ingresa **su mitad menos lo que adelantó** el mes anterior. Si sale negativo, la común le debe ese importe.
 - El presupuesto se puede cambiar desde un mes concreto; los meses anteriores conservan el suyo.
+- Con el **extracto del banco** de cada mes, Análisis muestra también lo gastado desde la cuenta común, por categorías. No cambia lo que ingresa cada uno.
 
 ## Puesta en marcha
 
@@ -21,7 +22,7 @@ App de gastos compartidos para dos personas. Es una web instalable (PWA): se abr
 4. Autoriza el script cuando lo pida y copia la **URL de la aplicación web** (termina en `/exec`). Esa dirección va en la constante `API` de `app.js`.
 5. Pon la palabra clave: **Configuración del proyecto** (el engranaje) → **Propiedades de la secuencia de comandos** → *Añadir propiedad*, con nombre `CLAVE` y como valor una frase larga (cuatro o cinco palabras).
 
-Las pestañas `Gastos` y `Presupuesto` se crean solas. Se pueden editar a mano: la app recoge los cambios en la siguiente sincronización.
+Las pestañas `Gastos`, `Presupuesto`, `Movimientos` y `Reglas` se crean solas. Se pueden editar a mano: la app recoge los cambios en la siguiente sincronización.
 
 > La dirección es pública; lo que protege la hoja es la palabra clave, que solo está en Google y en cada móvil. Sin la propiedad `CLAVE` el script no deja pasar a nadie. No distingue mayúsculas ni espacios de más. Cambiarla no requiere publicar de nuevo.
 
@@ -53,6 +54,17 @@ Si cambias `Code.gs`, hay que publicar de nuevo: **Implementar → Gestionar imp
   ]
 }
 ```
+
+### 5. Extracto del banco (cada mes)
+
+1. En Revolut, descarga el extracto de la cuenta común en **CSV** (Excel) del mes natural que acaba de terminar.
+2. En la app: **Ajustes → Extracto del banco → Importar CSV**. Antes de guardar se ve cuántos movimientos son nuevos.
+3. Los que queden sin categoría aparecen agrupados por comercio. Al elegir categoría se crea una regla, así que al mes siguiente ese comercio ya entra clasificado.
+
+- Los movimientos se ven en la pestaña **Adelantos**, con el selector **Banco**. Tocando uno se cambia su categoría.
+- **«No contar»** es para lo que no es un gasto: vuestros ingresos en la común (se marcan solos), traspasos a ahorro y las transferencias con las que la común os devuelve dinero, que ya están apuntadas como adelantos.
+- Importar dos veces el mismo mes, o que lo importéis los dos, no duplica nada.
+- De cada movimiento solo se guardan fecha, concepto, tipo e importe. Se descartan los pendientes o revertidos, los de otra divisa y los de la cuenta de ahorro.
 
 ## Aspecto
 

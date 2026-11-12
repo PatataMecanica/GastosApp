@@ -1,6 +1,6 @@
 # Gastos S&A
 
-App de gastos compartidos para dos personas (Adri y Stephy). PWA estática servida por GitHub Pages; los datos viven en una hoja de Google a través de un Apps Script. Todo el texto de la interfaz, los comentarios y la documentación están en español.
+App de gastos compartidos para dos personas (Adri y Stephy). PWA estática servida por GitHub Pages; los datos viven en una hoja de Google a través de un Apps Script. Además de los gastos adelantados, que se apuntan a mano, se importa el extracto en CSV de la cuenta común (Revolut) para analizar el gasto. Todo el texto de la interfaz, los comentarios y la documentación están en español.
 
 - Qué debe hacer y por qué: [`REQUIREMENTS.md`](REQUIREMENTS.md)
 - Cómo está hecho (datos, sincronización, cálculos): [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md)
@@ -30,6 +30,7 @@ node --check app.js           # comprobación de sintaxis
 - En local la app habla con la hoja real en cuanto se escribe la palabra clave. Para probar sin tocar datos reales, intercepta las peticiones o no la escribas.
 - El service worker solo se registra bajo `https:`, así que en `localhost` no interfiere.
 - Para revisar el diseño sin pulsar nada, basta con poner `estilo` (`pastel`, `neon`, `retro`) y `tema` (`auto`, `light`, `dark`) en el `localStorage` (`gastos_sa`) antes de cargar.
+- Para probar la importación, un CSV con la cabecera de Revolut (`Tipo,Producto,Fecha de inicio,Fecha de finalización,Descripción,Importe,Comisión,Divisa,State,Saldo`) y movimientos inventados.
 - Valores de referencia con el histórico de 2026: en noviembre Adri ingresa 455,39 € y Stephy 314,00 €; en agosto a Adri le sale −140,92 €.
 
 ## Despliegue
@@ -40,11 +41,12 @@ node --check app.js           # comprobación de sintaxis
 
 ## Reglas que no hay que romper
 
-- **Ningún dato personal en el repositorio**, que es público: ni gastos, ni importes del presupuesto, ni la palabra clave. El histórico se importa desde un archivo que no se versiona.
+- **Ningún dato personal en el repositorio**, que es público: ni gastos, ni extractos del banco, ni importes del presupuesto, ni la palabra clave. El histórico se importa desde un archivo que no se versiona.
 - **La palabra clave nunca va en el código.** Está en la propiedad `CLAVE` del script y en el `localStorage` de cada móvil. La URL del script sí es pública (constante `API` en `app.js`).
 - **Peticiones sin cabeceras propias y siempre por POST.** Apps Script no responde al *preflight* de CORS; el cuerpo va como texto plano con JSON dentro.
-- **Las operaciones deben ser idempotentes** (`put` por id, `del` por id, `budget` por mes): la cola se reintenta entera si falla la red.
-- **`Code.gs` reescribe las pestañas completas** en cada escritura. Columnas añadidas a mano en la hoja se pierden; si hace falta un campo nuevo, añadirlo a `COLS_G` o `COLS_P`.
+- **Los movimientos del banco no tocan las aportaciones.** Viven aparte (`S.movs`, pestaña `Movimientos`) y solo los usa el análisis; `advanced` y `contribution` miran únicamente `S.gastos`.
+- **Las operaciones deben ser idempotentes** (`put` por id, `del` por id, `budget` por mes, `madd` solo añade ids nuevos, `mcat` por ids, `rule` por texto): la cola se reintenta entera si falla la red.
+- **`Code.gs` reescribe las pestañas completas** en cada escritura. Columnas añadidas a mano en la hoja se pierden; si hace falta un campo nuevo, añadirlo a `COLS_G`, `COLS_P`, `COLS_M` o `COLS_R`. Solo reescribe las pestañas que cambian.
 - **Fechas como texto** `AAAA-MM-DD` y meses como `AAAA-MM`. Se comparan como cadenas; no convertir a `Date` para calcular.
 - **Escapar con `esc()`** todo lo que venga de datos al componer HTML.
 - **Las vistas se pintan dos veces al deslizar entre pestañas**: la vecina se compone con `VIEWS[tab]()` en una página temporal (`.peek`) a la que se le quitan los `id`. Dar estilo a lo que hay dentro de las vistas y de la cabecera por clase, no por id, y no dar por hecho que una función `view…` solo se llama desde `render()`.
