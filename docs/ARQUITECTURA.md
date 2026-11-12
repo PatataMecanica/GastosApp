@@ -253,6 +253,10 @@ Además de la barra inferior, se cambia de pestaña deslizando el dedo en horizo
 - Los eventos `touchmove` y `touchend` se escuchan en el elemento tocado, no en `document`: si una sincronización repinta la vista a medio gesto, ese elemento sale del documento y sus eventos dejarían de llegar.
 - Con «reducir movimiento» activado en el sistema, el cambio al soltar es inmediato.
 
+## Cambio de año
+
+No hay nada que hacer al empezar un año. Las fechas llevan el año, así que lo adelantado en diciembre se descuenta en enero, el presupuesto vigente sigue siéndolo y las reglas del banco se conservan. Análisis añade el año nuevo al selector y lo muestra por defecto; el anterior sigue disponible. Las medias son por año: en enero salen de un solo mes, y «gastado de verdad» y la parte de la común en «Por categoría» quedan vacías hasta que se importe en febrero el extracto de enero. El extracto de diciembre, importado en enero, cuenta en el año anterior.
+
 ## Limitaciones conocidas
 
 - El script de Google tarda entre uno y tres segundos en responder; por eso la interfaz no espera a la red.

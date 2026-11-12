@@ -30,7 +30,7 @@ node --check app.js           # comprobación de sintaxis
 - En local la app habla con la hoja real en cuanto se escribe la palabra clave. Para probar sin tocar datos reales, intercepta las peticiones o no la escribas.
 - El service worker solo se registra bajo `https:`, así que en `localhost` no interfiere.
 - Para revisar el diseño sin pulsar nada, basta con poner `estilo` (`pastel`, `neon`, `retro`) y `tema` (`auto`, `light`, `dark`) en el `localStorage` (`gastos_sa`) antes de cargar.
-- Para probar la importación, un CSV con la cabecera de Revolut (`Tipo,Producto,Fecha de inicio,Fecha de finalización,Descripción,Importe,Comisión,Divisa,State,Saldo`) y movimientos inventados.
+- Para probar la importación, un CSV con la cabecera de Revolut (`Tipo,Producto,Fecha de inicio,Fecha de finalización,Descripción,Importe,Comisión,Divisa,State,Saldo`) y movimientos inventados. El extracto real llega con las tildes estropeadas (`DescripciÃ³n`, UTF-8 pasado dos veces por Windows-1252) y saltos de línea `\r\n`: probar siempre también esa variante, que es la que falló la primera vez por probar solo con la cabecera bien escrita.
 - Valores de referencia con el histórico de 2026: en noviembre Adri ingresa 455,39 € y Stephy 314,00 €; en agosto a Adri le sale −140,92 €.
 
 ## Despliegue
