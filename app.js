@@ -166,6 +166,22 @@ function bankGuess(m) {
 }
 
 /* ---------- extracto del banco (CSV) ---------- */
+// El extracto puede llegar en UTF-8, en Windows-1252 o con las tildes estropeadas
+// («DescripciÃ³n»: UTF-8 leído como Windows-1252 y vuelto a guardar). Se lee como
+// sea y se reparan las tildes.
+const CP1252 = new TextDecoder('windows-1252');
+function decodeCsv(buf) {
+  let text;
+  try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch { text = CP1252.decode(buf); }
+  const back = {}; // carácter de Windows-1252 → su byte
+  for (let b = 0x80; b < 0xA0; b++) back[CP1252.decode(new Uint8Array([b]))] = b;
+  const utf8 = new TextDecoder('utf-8', { fatal: true });
+  return text.replace(/[\u00C2-\u00EF][^\x00-\x7F]{1,2}/g, seq => {
+    const bytes = [...seq].map(c => (c.charCodeAt(0) < 256 ? c.charCodeAt(0) : back[c]));
+    if (bytes.includes(undefined)) return seq;
+    try { return utf8.decode(new Uint8Array(bytes)); } catch { return seq; }
+  });
+}
 function parseCsv(text) {
   text = text.replace(/^\uFEFF/, '');
   const first = text.split(/\r?\n/, 1)[0];
@@ -218,7 +234,7 @@ function readStatement(text) {
   const rows = parseCsv(text);
   if (rows.length < 1) return null;
   const head = rows[0].map(norm), col = {};
-  for (const [k, names] of Object.entries(CSV_COLS)) col[k] = head.findIndex(h => names.includes(h));
+  for (const [k, names] of Object.entries(CSV_COLS)) col[k] = head.findIndex(h => names.includes(h.replace(/[^a-z ]/g, '')));
   if (col.concepto < 0 || col.importe < 0 || (col.fin < 0 && col.inicio < 0)) return null;
   const get = (r, k) => (col[k] >= 0 ? String(r[col[k]] ?? '').trim() : '');
   const movs = [], seen = {};
@@ -960,7 +976,7 @@ const span = yms => (yms.length > 1 ? `${monthLabel(yms[0])} – ${monthLabel(ym
 let incoming = null;
 async function importCsv(file) {
   let st = null;
-  try { st = readStatement(await file.text()); } catch { /* ilegible */ }
+  try { st = readStatement(decodeCsv(await file.arrayBuffer())); } catch { /* ilegible */ }
   if (!st) return toast('No parece un extracto de Revolut');
   if (!st.movs.length) return toast('El extracto no trae movimientos');
   const have = new Set(S.movs.map(m => m.id));

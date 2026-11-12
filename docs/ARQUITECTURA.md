@@ -100,7 +100,7 @@ La media por categoría suma dos medias: lo adelantado en el año entre los mese
 
 ### Extracto del banco
 
-`readStatement` (bloque «extracto del banco» de `app.js`) lee el CSV de Revolut: separador `,` o `;`, comillas, cabeceras en español o inglés. Descarta las filas que no están completadas, las de otra divisa y las de la cuenta de ahorro, y se queda con fecha, concepto, tipo e importe (importe menos comisión). El saldo y la fecha de inicio solo se usan para calcular el id.
+`readStatement` (bloque «extracto del banco» de `app.js`) lee el CSV de Revolut: separador `,` o `;`, comillas, cabeceras en español o inglés. Antes, `decodeCsv` lo convierte a texto: acepta UTF-8 y Windows-1252 y repara las tildes estropeadas («DescripciÃ³n»), que es como llega el extracto en español; las cabeceras se comparan solo por sus letras sin tilde. Descarta las filas que no están completadas, las de otra divisa y las de la cuenta de ahorro, y se queda con fecha, concepto, tipo e importe (importe menos comisión). El saldo y la fecha de inicio solo se usan para calcular el id.
 
 `bankGuess` decide la categoría al importar:
 

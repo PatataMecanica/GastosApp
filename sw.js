@@ -1,5 +1,5 @@
 // Guarda la app para que abra sin conexión. Los datos nunca pasan por aquí.
-const CACHE = 'gastos-sa-v7';
+const CACHE = 'gastos-sa-v8';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png'];
 
 self.addEventListener('install', e => {
