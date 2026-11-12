@@ -35,6 +35,7 @@ La app la usan los dos desde su móvil, uno con Android y otra con iPhone.
 ### Banco
 - F24. Importar en Ajustes el extracto en CSV de la cuenta común (Revolut): todo 2026 y después un mes natural cada vez.
 - F25. Reimportar un extracto, o que lo importen los dos, no duplica movimientos ni cambia categorías ya puestas.
+- F31. El extracto se lee tal como lo da Revolut, que en español llega con las tildes estropeadas («DescripciÃ³n»); la app las repara en cabeceras y conceptos.
 - F26. Solo se guardan fecha, concepto, tipo e importe. Se descartan los movimientos pendientes o revertidos, los de otra divisa y los de la cuenta de ahorro.
 - F27. Al importar, cada movimiento recibe categoría por las reglas guardadas o, si no hay regla, porque su concepto ya se clasificó antes o contiene el nombre de una partida. El dinero que entra se marca «No contar», salvo las devoluciones de compras.
 - F28. Lo que queda sin categoría se revisa agrupado por comercio, de mayor a menor importe. Elegir categoría crea una regla («los que contengan este texto»), compartida entre los dos móviles.
@@ -111,6 +112,6 @@ Decidido expresamente; no añadir sin preguntar.
 - Uso real en iPhone como app instalada: que la palabra clave y los datos locales se conserven.
 - Comportamiento del script en Google con dos móviles escribiendo a la vez.
 - Revisión de las categorías asignadas al histórico.
-- Importación con extractos reales de Revolut: solo se ha probado con la cabecera real y movimientos inventados. Los nombres exactos de los tipos (recargas, reembolsos) pueden variar.
+- Los nombres de tipo de Revolut que deciden qué es un ingreso y qué una devolución («Recarga», «Reembolso de tarjeta») son supuestos: revisar con extractos reales que los ingresos quedan en «No contar» y las devoluciones restan de su categoría.
 - Los estilos «Neón» y «Ochentas» en los móviles reales: solo se han revisado en capturas a 390 px de ancho.
 - En «Neón», los colores de persona (cian y magenta) se distinguen con daltonismo peor que los de los otros dos estilos, sobre todo en claro. Si molesta, cambiar el par.

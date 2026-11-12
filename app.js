@@ -526,7 +526,7 @@ function viewAnalisis() {
           <div><div class="num">${eur(avgReal)}</div><div class="sub">de vuestros bolsillos</div></div>
           <div><div class="num">${nb ? eur(avgSpent) : '—'}</div><div class="sub">gastado de verdad</div></div>
         </div>
-        <div class="sub">De vuestros bolsillos: aportaciones a la común más lo adelantado. Gastado: lo que salió de la común más lo adelantado${nb ? `, en ${nb === 1 ? 'el mes cerrado' : `los ${nb} meses cerrados`} con extracto` : '; hace falta importar el extracto del banco en Ajustes'}. Presupuesto: ${eur(budgetTotal(refYm))}.
+        <div class="sub">De vuestros bolsillos: aportaciones a la común más lo adelantado. Gastado: lo que salió de la común más lo adelantado${nb ? `, en ${nb === 1 ? 'el mes cerrado' : `los ${nb} meses cerrados`} con extracto` : `; ${year === thisYm().slice(0, 4) && months.length < 2 ? 'se verá al importar el extracto del primer mes cerrado' : 'hace falta importar el extracto del banco en Ajustes'}`}. Presupuesto: ${eur(budgetTotal(refYm))}.
           ${Math.abs(drift) >= 0.5 ? `<br>En ${nb === 1 ? 'ese mes' : 'esos meses'} la común ${drift > 0 ? 'acumuló' : 'perdió'} ${eur0(Math.abs(drift))} al mes.` : ''}</div></div>
       ${PEOPLE.map((p, i) => `<div class="card kpi"><div class="mini"><div class="who">${who(p)}</div></div><div class="num">${eur0(tot[i])}</div>
         <div class="sub">adelantado · ${total ? Math.round(tot[i] / total * 100) : 0} %</div></div>`).join('')}
