@@ -197,6 +197,16 @@ Los colores de persona se validaron simulando protanopia, deuteranopia y tritano
 4. Revisar las cuatro pestañas, los formularios y la bienvenida en claro y oscuro a 390 px.
 
 El selector de estilo es una rejilla de tres columnas (`.segm.three`); con un cuarto estilo habría que rehacerla.
+### Deslizar entre pestañas
+
+Además de la barra inferior, se cambia de pestaña deslizando el dedo en horizontal (bloque «deslizar entre pestañas» de `app.js`):
+
+- La página real (`#app`: cabecera y vista) se mueve con `transform` siguiendo al dedo. La pestaña vecina se pinta en una segunda página temporal, `.peek`, fija a pantalla completa y colocada a un ancho de pantalla de distancia. Se compone con las mismas funciones (`topHtml`, `VIEWS`) y se le quitan los `id` para que no se dupliquen. Por eso los estilos de página y cabecera van por clase (`.page`, `.head`) y no por id.
+- La vecina se muestra tal como quedará al llegar, arriba del todo, aunque la página actual esté desplazada. Al completar el gesto se llama a `go()`, se quita la transformación y se retira `.peek`, sin salto visible.
+- El gesto se decide tras 10 px: si es claramente horizontal se queda con él; si no, el desplazamiento vertical sigue siendo del navegador (`touch-action: pan-y` en `#app`). Al soltar cambia de pestaña si se pasó del 40 % del ancho o si el dedo iba rápido; en caso contrario vuelve. En la primera y la última pestaña hay resistencia de goma.
+- No se activa con la hoja inferior abierta, en las pantallas de bienvenida, sobre la barra de navegación, al empezar en un campo de texto ni, fuera de la app instalada, al empezar a menos de 24 px del borde (ahí manda el gesto «atrás» del navegador).
+- Los eventos `touchmove` y `touchend` se escuchan en el elemento tocado, no en `document`: si una sincronización repinta la vista a medio gesto, ese elemento sale del documento y sus eventos dejarían de llegar.
+- Con «reducir movimiento» activado en el sistema, el cambio al soltar es inmediato.
 
 ## Limitaciones conocidas
 
