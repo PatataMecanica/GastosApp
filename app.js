@@ -20,7 +20,7 @@ const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ
 /* ---------- estado ---------- */
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { /* copia local ilegible */ }
-const S = Object.assign({ me: '', clave: '', gastos: [], presupuesto: [], queue: [], lastSync: 0, tema: 'auto', estilo: 'pastel' }, saved);
+const S = Object.assign({ me: '', clave: '', gastos: [], presupuesto: [], movs: [], reglas: [], mv: '', queue: [], lastSync: 0, tema: 'auto', estilo: 'pastel' }, saved);
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* sin almacenamiento */ } };
 
 /* ---------- diseño: modo y estilo ----------
@@ -51,7 +51,7 @@ const shiftYm = (ym, n) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
 };
 
-const ui = { tab: 'inicio', month: thisYm(), year: thisYm().slice(0, 4), q: '', syncing: false, err: '' };
+const ui = { tab: 'inicio', src: 'adel', month: thisYm(), year: thisYm().slice(0, 4), q: '', syncing: false, err: '', oldScript: false };
 
 /* ---------- formato ---------- */
 const nf = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' });
@@ -103,10 +103,12 @@ function categoriesFor(ym) {
   const out = budgetItems(ym).map(r => r.categoria);
   const freq = {};
   for (const g of S.gastos) if (g.categoria) freq[g.categoria] = (freq[g.categoria] || 0) + 1;
+  for (const m of S.movs) if (m.categoria && m.categoria !== SKIP) freq[m.categoria] = (freq[m.categoria] || 0) + 1;
   Object.keys(freq).sort((a, b) => freq[b] - freq[a]).forEach(c => { if (!out.some(o => norm(o) === norm(c))) out.push(c); });
   return out;
 }
-function guessCategory(concepto, ym) {
+// Con strict no se usan las palabras clave: sirve para clasificar sin que nadie lo revise.
+function guessCategory(concepto, ym, strict) {
   const c = norm(concepto);
   if (!c) return '';
   // 1) el mismo concepto ya se clasificó antes
@@ -115,7 +117,7 @@ function guessCategory(concepto, ym) {
   // 2) el concepto contiene el nombre de una categoría ("Luz", "Agua"...)
   const cats = categoriesFor(ym);
   const byName = cats.find(k => new RegExp(`(^|\\W)${norm(k).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\W|$)`).test(c));
-  if (byName) return byName;
+  if (byName || strict) return byName || '';
   // 3) palabras clave habituales
   for (const [key, words] of Object.entries(KEYWORDS)) {
     if (words.some(w => c.includes(w))) { const hit = cats.find(k => norm(k) === key); if (hit) return hit; }
@@ -123,7 +125,122 @@ function guessCategory(concepto, ym) {
   return '';
 }
 
+/* ---------- banco ----------
+   Movimientos de la cuenta común, importados del extracto (CSV de Revolut). Solo sirven
+   para el análisis: no entran en el cálculo de lo que ingresa cada uno. El importe
+   conserva el signo del banco: negativo es un gasto. */
+const SKIP = 'No contar'; // categoría de lo que no es un gasto: ingresos en la común, traspasos…
+const counted = m => m.categoria !== SKIP;
+const movsOf = ym => S.movs.filter(m => m.fecha.startsWith(ym));
+const pending = () => S.movs.filter(m => !m.categoria);
+// Lo gastado desde la común en un mes; las devoluciones restan.
+const bankSpend = ym => -sum(movsOf(ym).filter(counted).map(m => m.importe));
+// Lo gastado de verdad: lo que salió de la común más lo adelantado.
+const actualSpend = ym => bankSpend(ym) + sum(PEOPLE.map(p => advanced(p, ym)));
+const bankMonths = (year = '') => [...new Set(S.movs.filter(m => m.fecha.startsWith(year)).map(m => m.fecha.slice(0, 7)))].sort();
+// Meses ya cerrados sin extracto, desde el primero que lo tiene.
+function missingBank(year) {
+  const have = bankMonths(), out = [];
+  if (!have.length) return out;
+  for (let ym = have[0]; ym < thisYm(); ym = shiftYm(ym, 1)) if (!have.includes(ym) && ym.startsWith(year)) out.push(ym);
+  return out;
+}
+const monthList = yms => yms.map(monthName).join(', ');
+
+// Regla que le toca a un concepto: la de texto más largo que aparezca en él.
+function ruleFor(concepto) {
+  const c = norm(concepto);
+  let best = null;
+  for (const r of S.reglas) {
+    const t = norm(r.texto);
+    if (t && c.includes(t) && (!best || t.length > norm(best.texto).length)) best = r;
+  }
+  return best;
+}
+const isRefund = m => /reembolso|devoluc|refund/.test(norm(m.tipo));
+function bankGuess(m) {
+  const r = ruleFor(m.concepto);
+  if (r) return r.categoria;
+  if (m.importe > 0 && !isRefund(m)) return SKIP; // dinero que entra: vuestros ingresos
+  return guessCategory(m.concepto, m.fecha.slice(0, 7), true);
+}
+
+/* ---------- extracto del banco (CSV) ---------- */
+function parseCsv(text) {
+  text = text.replace(/^\uFEFF/, '');
+  const first = text.split(/\r?\n/, 1)[0];
+  const sep = first.split(';').length > first.split(',').length ? ';' : ',';
+  const rows = [];
+  let row = [], cell = '', quoted = false;
+  const endRow = () => { row.push(cell); cell = ''; if (row.some(c => c.trim())) rows.push(row); row = []; };
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch !== '"') cell += ch;
+      else if (text[i + 1] === '"') { cell += '"'; i++; }
+      else quoted = false;
+    }
+    else if (ch === '"') quoted = true;
+    else if (ch === sep) { row.push(cell); cell = ''; }
+    else if (ch === '\n') endRow();
+    else if (ch !== '\r') cell += ch;
+  }
+  endRow();
+  return rows;
+}
+// Nombres de las columnas de Revolut, en español y en inglés.
+const CSV_COLS = {
+  tipo: ['tipo', 'type'], producto: ['producto', 'product'],
+  inicio: ['fecha de inicio', 'started date'], fin: ['fecha de finalizacion', 'completed date'],
+  concepto: ['descripcion', 'description'], importe: ['importe', 'amount'], comision: ['comision', 'fee'],
+  divisa: ['divisa', 'currency'], estado: ['state', 'estado'], saldo: ['saldo', 'balance'],
+};
+const csvNum = v => {
+  let t = String(v || '').replace(/\s/g, '');
+  t = t.includes(',') && !t.includes('.') ? t.replace(',', '.') : t.replace(/,/g, '');
+  const n = parseFloat(t);
+  return isFinite(n) ? n : 0;
+};
+function hash(str) { // cyrb53: corto, estable y suficiente para identificar un movimiento
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0');
+}
+// Devuelve los movimientos del extracto, o null si el archivo no es un extracto.
+// De cada fila solo se queda con fecha, concepto, tipo e importe. El id sale del
+// contenido, así que el mismo movimiento recibe siempre el mismo.
+function readStatement(text) {
+  const rows = parseCsv(text);
+  if (rows.length < 1) return null;
+  const head = rows[0].map(norm), col = {};
+  for (const [k, names] of Object.entries(CSV_COLS)) col[k] = head.findIndex(h => names.includes(h));
+  if (col.concepto < 0 || col.importe < 0 || (col.fin < 0 && col.inicio < 0)) return null;
+  const get = (r, k) => (col[k] >= 0 ? String(r[col[k]] ?? '').trim() : '');
+  const movs = [], seen = {};
+  let skipped = 0;
+  for (const r of rows.slice(1)) {
+    const fecha = (get(r, 'fin') || get(r, 'inicio')).slice(0, 10);
+    const importe = Math.round((csvNum(get(r, 'importe')) - csvNum(get(r, 'comision'))) * 100) / 100;
+    const ok = /^\d{4}-\d{2}-\d{2}$/.test(fecha) && importe !== 0
+      && (col.estado < 0 || /complet/.test(norm(get(r, 'estado'))))          // ni pendientes ni revertidos
+      && !/ahorro|deposito|saving|deposit/.test(norm(get(r, 'producto')))    // el otro lado de un traspaso
+      && (!get(r, 'divisa') || get(r, 'divisa').toUpperCase() === 'EUR');
+    if (!ok) { skipped++; continue; }
+    let id = 'b' + hash(['inicio', 'tipo', 'concepto', 'importe', 'saldo'].map(k => get(r, k)).join('|') + '|' + fecha);
+    seen[id] = (seen[id] || 0) + 1;
+    if (seen[id] > 1) id += '-' + seen[id];
+    movs.push({ id, fecha, concepto: get(r, 'concepto'), importe, tipo: get(r, 'tipo'), categoria: '' });
+  }
+  return { movs, skipped };
+}
+
 /* ---------- cambios y sincronización ---------- */
+const isBankOp = op => op.t === 'madd' || op.t === 'mcat' || op.t === 'rule';
 function applyLocal(op) {
   if (op.t === 'put') {
     const i = S.gastos.findIndex(g => g.id === op.g.id);
@@ -133,6 +250,16 @@ function applyLocal(op) {
   } else if (op.t === 'budget') {
     S.presupuesto = S.presupuesto.filter(r => r.desde !== op.desde)
       .concat(op.items.map(it => ({ desde: op.desde, categoria: it.categoria, importe: it.importe })));
+  } else if (op.t === 'madd') {
+    const have = new Set(S.movs.map(m => m.id));
+    for (const m of op.ms) if (!have.has(m.id)) { have.add(m.id); S.movs.push({ ...m }); }
+  } else if (op.t === 'mcat') {
+    const ids = new Set(op.ids);
+    for (const m of S.movs) if (ids.has(m.id)) m.categoria = op.categoria;
+  } else if (op.t === 'rule') {
+    const key = op.texto.trim().toLowerCase();
+    S.reglas = S.reglas.filter(r => r.texto.toLowerCase() !== key);
+    if (op.categoria) S.reglas.push({ texto: op.texto.trim(), categoria: op.categoria });
   }
 }
 function mutate(...ops) {
@@ -147,18 +274,23 @@ async function sync() {
   const sending = S.queue.slice();
   try {
     // Sin cabeceras propias: así el navegador no hace "preflight", que Apps Script no admite.
-    const res = await fetch(API, { method: 'POST', body: JSON.stringify({ clave: S.clave, ops: sending }), redirect: 'follow' });
+    const res = await fetch(API, { method: 'POST', body: JSON.stringify({ clave: S.clave, ops: sending, mv: S.mv }), redirect: 'follow' });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'Respuesta no válida');
+    // Un script anterior a los movimientos del banco los ignoraría: se guardan hasta que se actualice.
+    ui.oldScript = !data.v;
+    if (ui.oldScript && sending.some(isBankOp)) throw new Error('script');
     S.queue = S.queue.slice(sending.length);
     S.gastos = data.gastos || [];
     S.presupuesto = data.presupuesto || [];
+    // Los movimientos solo vienen si han cambiado respecto a la versión (mv) que ya tenemos.
+    if (data.movimientos) { S.movs = data.movimientos; S.reglas = data.reglas || []; S.mv = data.mv || ''; }
     S.queue.forEach(applyLocal); // cambios hechos mientras se enviaba
     S.lastSync = Date.now();
     ui.err = '';
     save();
   } catch (e) {
-    ui.err = e.message === 'clave' ? 'Palabra clave incorrecta' : navigator.onLine ? 'No se pudo conectar con la hoja' : 'Sin conexión';
+    ui.err = e.message === 'clave' ? 'Palabra clave incorrecta' : e.message === 'script' ? 'Falta actualizar el script' : navigator.onLine ? 'No se pudo conectar con la hoja' : 'Sin conexión';
   }
   ui.syncing = false;
   if (ui.err === 'Palabra clave incorrecta' && S.lastSync) { S.clave = ''; save(); }
@@ -180,11 +312,19 @@ function rowHtml(g, withDate) {
     <span class="amt">${eur(g.importe)}</span>
   </button>`;
 }
+function movRowHtml(m, withDate) {
+  const meta = [withDate ? dayLabel(m.fecha) : '', m.categoria || 'Sin categoría', m.tipo].filter(Boolean).join(' · ');
+  return `<button class="row ${counted(m) ? '' : 'off'}" data-mov="${esc(m.id)}">
+    <span class="av bank ${m.categoria ? '' : 'todo'}">${esc(m.categoria ? m.categoria[0].toUpperCase() : '?')}</span>
+    <span class="txt"><div class="c">${esc(m.concepto || 'Sin concepto')}</div><div class="m">${esc(meta)}</div></span>
+    <span class="amt">${m.importe > 0 ? '+' : ''}${eur(Math.abs(m.importe))}</span>
+  </button>`;
+}
 const byDateDesc = (a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : (a.modificado < b.modificado ? 1 : -1));
 
 /* ---------- cabecera ---------- */
 function topHtml(tab) {
-  const titles = { inicio: `Hola, ${S.me}`, gastos: 'Gastos', analisis: 'Análisis', ajustes: 'Ajustes' };
+  const titles = { inicio: `Hola, ${S.me}`, gastos: ui.src === 'banco' ? 'Banco' : 'Adelantos', analisis: 'Análisis', ajustes: 'Ajustes' };
   let cls = '', txt = 'Al día';
   if (ui.syncing) { cls = 'busy'; txt = 'Sincronizando'; }
   else if (ui.err) { cls = 'err'; txt = ui.err; }
@@ -226,8 +366,8 @@ function viewInicio() {
         <div class="sub">en ${esc(monthName(next))} ingresará ${eur(contribution(p, next))}</div></div>`).join('')}
     </div>
 
-    <div class="section"><h2>Últimos gastos</h2>${recent.length ? `<button class="link" data-tab="gastos">Ver todos</button>` : ''}</div>
-    <div class="list">${recent.length ? recent.map(g => rowHtml(g, true)).join('') : `<div class="empty">Todavía no hay gastos.<br>Pulsa + para apuntar el primero.</div>`}</div>`;
+    <div class="section"><h2>Últimos adelantos</h2>${recent.length ? `<button class="link" data-tab="gastos">Ver todos</button>` : ''}</div>
+    <div class="list">${recent.length ? recent.map(g => rowHtml(g, true)).join('') : `<div class="empty">Todavía no hay adelantos.<br>Pulsa + para apuntar el primero.</div>`}</div>`;
 }
 
 /* ---------- gastos ---------- */
@@ -240,7 +380,7 @@ function gastosListHtml() {
       : `<div class="list"><div class="empty">Nada coincide con «${esc(ui.q)}».</div></div>`;
   }
   const items = ofMonth(ui.month).sort(byDateDesc);
-  if (!items.length) return `<div class="list"><div class="empty">Sin gastos en ${esc(monthLabel(ui.month))}.</div></div>`;
+  if (!items.length) return `<div class="list"><div class="empty">Sin adelantos en ${esc(monthLabel(ui.month))}.</div></div>`;
   let html = '', last = '';
   for (const g of items) {
     if (g.fecha !== last) { html += `<div class="day">${esc(dayLabel(g.fecha))}</div>`; last = g.fecha; }
@@ -248,9 +388,33 @@ function gastosListHtml() {
   }
   return `<div class="list">${html}</div>`;
 }
+function bancoListHtml() {
+  const q = norm(ui.q);
+  if (q) {
+    const hits = S.movs.filter(m => norm(`${m.concepto} ${m.categoria || 'sin categoria'} ${m.tipo}`).includes(q)).sort(byDateDesc);
+    return hits.length
+      ? `<div class="list"><div class="day">${hits.length} resultado${hits.length > 1 ? 's' : ''} · ${eur(-sum(hits.filter(counted).map(m => m.importe)))}</div>${hits.map(m => movRowHtml(m, true)).join('')}</div>`
+      : `<div class="list"><div class="empty">Nada coincide con «${esc(ui.q)}».</div></div>`;
+  }
+  const items = movsOf(ui.month).sort(byDateDesc);
+  if (!items.length) return `<div class="list"><div class="empty">Sin movimientos en ${esc(monthLabel(ui.month))}.<br>El extracto del banco se importa en Ajustes.</div></div>`;
+  let html = '', last = '';
+  for (const m of items) {
+    if (m.fecha !== last) { html += `<div class="day">${esc(dayLabel(m.fecha))}</div>`; last = m.fecha; }
+    html += movRowHtml(m, false);
+  }
+  return `<div class="list">${html}</div>`;
+}
+const listHtml = () => (ui.src === 'banco' ? bancoListHtml() : gastosListHtml());
 function viewGastos() {
+  const banco = ui.src === 'banco', todo = pending().length;
+  const out = movsOf(ui.month).filter(m => !counted(m));
   return `
-    <input class="search" id="q" type="search" placeholder="Buscar en todos los gastos" value="${esc(ui.q)}" autocomplete="off">
+    <div class="segm src">
+      <button class="${banco ? '' : 'on'}" data-src="adel" aria-pressed="${!banco}">Adelantos</button>
+      <button class="${banco ? 'on' : ''}" data-src="banco" aria-pressed="${banco}">Banco</button>
+    </div>
+    <input class="search" id="q" type="search" placeholder="${banco ? 'Buscar en los movimientos del banco' : 'Buscar en todos los adelantos'}" value="${esc(ui.q)}" autocomplete="off">
     <div id="monthpart" ${ui.q ? 'hidden' : ''}>
       <div class="monthnav">
         <button data-month="-1" aria-label="Mes anterior">‹</button>
@@ -258,10 +422,13 @@ function viewGastos() {
         <button data-month="1" aria-label="Mes siguiente" ${ui.month >= shiftYm(thisYm(), 1) ? 'disabled' : ''}>›</button>
       </div>
       <div class="duo">
-        ${PEOPLE.map(p => `<div class="card mini"><div class="who">${who(p)}</div><div class="num">${eur(advanced(p, ui.month))}</div><div class="sub">adelantado</div></div>`).join('')}
+        ${!banco ? PEOPLE.map(p => `<div class="card mini"><div class="who">${who(p)}</div><div class="num">${eur(advanced(p, ui.month))}</div><div class="sub">adelantado</div></div>`).join('') : `
+        <div class="card mini"><div class="who">Gastado</div><div class="num">${eur(bankSpend(ui.month))}</div><div class="sub">desde la común</div></div>
+        ${todo ? `<button class="card mini todo" data-review><div class="who">Sin categoría</div><div class="num">${todo}</div><div class="sub">toca para revisar</div></button>`
+          : `<div class="card mini"><div class="who">No contado</div><div class="num">${eur(sum(out.map(m => Math.abs(m.importe))))}</div><div class="sub">ingresos y traspasos</div></div>`}`}
       </div>
     </div>
-    <div id="glist">${gastosListHtml()}</div>`;
+    <div id="glist">${listHtml()}</div>`;
 }
 
 /* ---------- análisis ---------- */
@@ -310,7 +477,7 @@ function readoutHtml(year, i) {
   return `<b style="text-transform:capitalize">${esc(monthLabel(ym))}</b> · ${eur(a + b)}<br>${PEOPLE[0]} ${eur(a)} · ${PEOPLE[1]} ${eur(b)}`;
 }
 function viewAnalisis() {
-  const years = [...new Set(S.gastos.map(g => g.fecha.slice(0, 4)).concat(thisYm().slice(0, 4)))].sort();
+  const years = [...new Set(S.gastos.concat(S.movs).map(g => g.fecha.slice(0, 4)).concat(thisYm().slice(0, 4)))].sort();
   if (!years.includes(ui.year)) ui.year = years[years.length - 1];
   const year = ui.year, months = yearMonths(year), n = Math.max(months.length, 1);
   const ofYear = S.gastos.filter(g => g.fecha.startsWith(year));
@@ -319,19 +486,32 @@ function viewAnalisis() {
   const avgReal = months.length ? sum(months.map(realSpend)) / n : 0;
   const refYm = months[months.length - 1] || `${year}-12`;
 
-  // por categoría: media mensual adelantada frente al presupuesto mensual
+  // Lo gastado de verdad solo se conoce en los meses con extracto del banco.
+  // El mes en curso no entra en las medias: su extracto aún está a medias.
+  const withBank = bankMonths(year), bm = withBank.filter(ym => ym < thisYm()), nb = bm.length, missing = missingBank(year);
+  const avgSpent = nb ? sum(bm.map(actualSpend)) / nb : 0;
+  const drift = nb ? sum(bm.map(realSpend)) / nb - avgSpent : 0; // lo que la común gana o pierde al mes
+
+  // por categoría: media mensual (común más adelantos) frente al presupuesto mensual
   const cats = {};
-  for (const g of ofYear) { const k = g.categoria || 'Sin categoría'; cats[k] = (cats[k] || 0) + g.importe; }
+  const add = (k, v) => { k = k || 'Sin categoría'; cats[k] = (cats[k] || 0) + v; };
+  for (const g of ofYear) add(g.categoria, g.importe / n);
+  for (const m of S.movs) if (bm.includes(m.fecha.slice(0, 7)) && counted(m)) add(m.categoria, -m.importe / nb);
   const budget = {};
   for (const r of budgetItems(refYm)) { budget[r.categoria] = r.importe; if (!(r.categoria in cats)) cats[r.categoria] = 0; }
-  const rows = Object.keys(cats).map(k => ({ k, avg: cats[k] / n, total: cats[k], bud: budget[k] })).sort((a, b) => b.avg - a.avg);
+  const rows = Object.keys(cats).map(k => ({ k, avg: cats[k], bud: budget[k] })).sort((a, b) => b.avg - a.avg);
   const scale = Math.max(1, ...rows.map(r => Math.max(r.avg, r.bud || 0)));
 
   return `
     <div class="pills">${years.map(y => `<button class="pill ${y === year ? 'on' : ''}" data-year="${y}">${y}</button>`).join('')}</div>
     <div class="kpis">
-      <div class="card kpi wide"><div class="label">Gasto real medio al mes</div><div class="num">${eur(avgReal)}</div>
-        <div class="sub">Lo que sale de vuestros bolsillos: aportaciones a la común más lo adelantado. Presupuesto: ${eur(budgetTotal(refYm))}.</div></div>
+      <div class="card kpi wide"><div class="label">Gasto real medio al mes</div>
+        <div class="pair">
+          <div><div class="num">${eur(avgReal)}</div><div class="sub">de vuestros bolsillos</div></div>
+          <div><div class="num">${nb ? eur(avgSpent) : '—'}</div><div class="sub">gastado de verdad</div></div>
+        </div>
+        <div class="sub">De vuestros bolsillos: aportaciones a la común más lo adelantado. Gastado: lo que salió de la común más lo adelantado${nb ? `, en ${nb === 1 ? 'el mes cerrado' : `los ${nb} meses cerrados`} con extracto` : '; hace falta importar el extracto del banco en Ajustes'}. Presupuesto: ${eur(budgetTotal(refYm))}.
+          ${Math.abs(drift) >= 0.5 ? `<br>En ${nb === 1 ? 'ese mes' : 'esos meses'} la común ${drift > 0 ? 'acumuló' : 'perdió'} ${eur0(Math.abs(drift))} al mes.` : ''}</div></div>
       ${PEOPLE.map((p, i) => `<div class="card kpi"><div class="mini"><div class="who">${who(p)}</div></div><div class="num">${eur0(tot[i])}</div>
         <div class="sub">adelantado · ${total ? Math.round(tot[i] / total * 100) : 0} %</div></div>`).join('')}
     </div>
@@ -345,26 +525,37 @@ function viewAnalisis() {
 
     <div class="card">
       <h2>Por categoría</h2>
-      <div class="sub">Media mensual adelantada. La marca es el presupuesto.</div>
+      <div class="sub">Media mensual de lo pagado desde la común y lo adelantado. La marca es el presupuesto.</div>
       <div style="margin-top:8px">
       ${rows.length ? rows.map(r => `<div class="cat">
           <div class="top"><b>${esc(r.k)}</b><span>${eur0(r.avg)}${r.bud != null ? ` / ${eur0(r.bud)}` : ''}</span></div>
-          <div class="track"><div class="fill" style="width:${(r.avg / scale * 100).toFixed(1)}%"></div>
+          <div class="track"><div class="fill" style="width:${(Math.max(r.avg, 0) / scale * 100).toFixed(1)}%"></div>
             ${r.bud != null ? `<div class="tick" style="left:calc(${(r.bud / scale * 100).toFixed(1)}% - 1px)"></div>` : ''}</div>
           ${r.bud != null && r.avg > r.bud + 0.5 ? `<div class="over">▲ ${eur0(r.avg - r.bud)} por encima del presupuesto</div>` : ''}
         </div>`).join('') : `<div class="empty">Sin datos este año.</div>`}
       </div>
-      <div class="foot">Solo cuenta lo adelantado por cada uno; lo que se paga directamente desde la común no se apunta.</div>
+      <div class="foot">${!nb ? 'Solo cuenta lo adelantado: aún no hay ningún mes cerrado con extracto del banco.'
+        : missing.length ? `Falta el extracto de ${esc(monthList(missing))}: la media de la común sale de ${nb === 1 ? 'un mes' : `${nb} meses`}.`
+        : `La común cuenta ${nb === 1 ? 'el mes cerrado' : `los ${nb} meses cerrados`} con extracto.`}</div>
     </div>
 
     <div class="card">
       <h2>Aportaciones a la común</h2>
       <table class="year">
-        <tr><th>Mes</th>${PEOPLE.map(p => `<th>${esc(p)}</th>`).join('')}<th>Gasto real</th></tr>
+        <tr><th>Mes</th>${PEOPLE.map(p => `<th>${esc(p)}</th>`).join('')}</tr>
         ${months.map(ym => `<tr class="${ym === thisYm() ? 'now' : ''}"><td>${esc(monthName(ym))}</td>
-          ${PEOPLE.map(p => { const c = contribution(p, ym); return `<td class="${c < 0 ? 'neg' : ''}">${nf.format(c)}</td>`; }).join('')}
-          <td>${nf.format(realSpend(ym))}</td></tr>`).join('') || `<tr><td colspan="4" class="empty">Sin datos.</td></tr>`}
+          ${PEOPLE.map(p => { const c = contribution(p, ym); return `<td class="${c < 0 ? 'neg' : ''}">${nf.format(c)}</td>`; }).join('')}</tr>`).join('') || `<tr><td colspan="3" class="empty">Sin datos.</td></tr>`}
       </table>
+    </div>
+
+    <div class="card">
+      <h2>Gasto real cada mes</h2>
+      <table class="year">
+        <tr><th>Mes</th><th>De los bolsillos</th><th>Gastado</th></tr>
+        ${months.map(ym => `<tr class="${ym === thisYm() ? 'now' : ''}"><td>${esc(monthName(ym))}</td>
+          <td>${nf.format(realSpend(ym))}</td><td>${withBank.includes(ym) ? nf.format(actualSpend(ym)) : '—'}</td></tr>`).join('') || `<tr><td colspan="3" class="empty">Sin datos.</td></tr>`}
+      </table>
+      <div class="foot">«Gastado» necesita el extracto del banco de ese mes.</div>
     </div>`;
 }
 
@@ -372,6 +563,7 @@ function viewAnalisis() {
 function viewAjustes() {
   const ym = thisYm(), items = budgetItems(ym);
   const versions = [...new Set(S.presupuesto.map(r => r.desde))].sort();
+  const todo = pending().length, missing = missingBank('');
   return `
     <div class="card">
       <h2>¿Quién eres?</h2>
@@ -401,6 +593,24 @@ function viewAjustes() {
     </div>
 
     <div class="card">
+      <h2>Extracto del banco</h2>
+      <div class="sub">Importa el CSV de Revolut de cada mes para ver en Análisis todo lo gastado desde la común. Solo se guardan fecha, concepto, tipo e importe, y volver a importar un mes no duplica nada.</div>
+      ${S.movs.length ? `<div style="margin-top:8px">
+        <div class="kv"><span>Movimientos</span><span>${S.movs.length}</span></div>
+        <div class="kv"><span>Meses con extracto</span><span>${bankMonths().length}</span></div>
+        <div class="kv"><span>Sin categoría</span><span>${todo}</span></div>
+      </div>` : ''}
+      <div class="btns">
+        <button class="btn sm" id="importcsv" ${ui.oldScript ? 'disabled' : ''}>Importar CSV</button>
+        ${todo ? `<button class="btn sm ghost" data-review>Revisar ${todo}</button>` : ''}
+        ${S.reglas.length ? `<button class="btn sm ghost" data-rules>Reglas</button>` : ''}
+        <input type="file" id="csvfile" accept=".csv,text/csv,text/comma-separated-values" hidden>
+      </div>
+      ${ui.oldScript ? `<div class="foot">Antes hay que actualizar el script de la hoja de Google (ver el README).</div>`
+        : missing.length ? `<div class="foot">Falta el extracto de ${esc(missing.map(monthLabel).join(', '))}.</div>` : ''}
+    </div>
+
+    <div class="card">
       <h2>Hoja de Google</h2>
       <div class="sub">${ui.err ? esc(ui.err) + '.' : S.lastSync ? `Conectada. Última sincronización: ${new Date(S.lastSync).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}.` : 'Pendiente de la primera sincronización.'}</div>
       <div class="btns">
@@ -411,7 +621,7 @@ function viewAjustes() {
 
     <div class="card">
       <h2>Copia de seguridad</h2>
-      <div class="sub">Exporta todo a un archivo o importa una copia. Al importar, los gastos se añaden a los que ya haya.</div>
+      <div class="sub">Exporta todo a un archivo o importa una copia. Al importar, los datos se añaden a los que ya haya.</div>
       <div class="btns">
         <button class="btn sm ghost" id="export">Exportar</button>
         <button class="btn sm ghost" id="import">Importar</button>
@@ -647,7 +857,7 @@ function openGasto(id) {
   form = g ? { ...g, auto: false } : { id: '', fecha: ui.tab === 'gastos' && ui.month !== thisYm() ? `${ui.month}-01` : today(), concepto: '', importe: '', pagador: S.me, categoria: '', nota: '', auto: true };
   const concepts = [...new Set(S.gastos.slice().sort(byDateDesc).map(x => x.concepto.trim()).filter(Boolean))].slice(0, 80);
   openSheet(`
-    <h2>${g ? 'Editar gasto' : 'Nuevo gasto'}</h2>
+    <h2>${g ? 'Editar adelanto' : 'Nuevo adelanto'}</h2>
     <form id="fg" autocomplete="off">
       <div class="amount"><input id="f-imp" inputmode="decimal" placeholder="0,00" value="${g ? esc(nf.format(g.importe).replace(/\./g, '')) : ''}" aria-label="Importe"></div>
       <div class="amount-unit">euros</div>
@@ -665,7 +875,7 @@ function openGasto(id) {
       <input class="field" id="f-not" value="${esc(form.nota)}">
       <div class="btns" style="margin-top:22px">
         <button class="btn block" type="submit">Guardar</button>
-        ${g ? `<button class="btn danger block" type="button" id="f-del">Eliminar gasto</button>` : ''}
+        ${g ? `<button class="btn danger block" type="button" id="f-del">Eliminar adelanto</button>` : ''}
       </div>
     </form>`);
   paintForm();
@@ -695,7 +905,7 @@ function submitGasto() {
   const isNew = !form.id;
   $('#sheet').hidden = true; document.body.style.overflow = '';
   mutate({ t: 'put', g });
-  toast(isNew ? 'Gasto apuntado' : 'Gasto actualizado');
+  toast(isNew ? 'Adelanto apuntado' : 'Adelanto actualizado');
 }
 
 /* ---------- hoja: presupuesto ---------- */
@@ -742,9 +952,131 @@ function submitBudget() {
   toast('Presupuesto guardado');
 }
 
+/* ---------- hojas: banco ---------- */
+const hideSheet = () => { $('#sheet').hidden = true; document.body.style.overflow = ''; };
+const span = yms => (yms.length > 1 ? `${monthLabel(yms[0])} – ${monthLabel(yms[yms.length - 1])}` : monthLabel(yms[0]));
+
+// Importar: primero un resumen de lo que trae el archivo; no se guarda nada hasta confirmar.
+let incoming = null;
+async function importCsv(file) {
+  let st = null;
+  try { st = readStatement(await file.text()); } catch { /* ilegible */ }
+  if (!st) return toast('No parece un extracto de Revolut');
+  if (!st.movs.length) return toast('El extracto no trae movimientos');
+  const have = new Set(S.movs.map(m => m.id));
+  const fresh = st.movs.filter(m => !have.has(m.id));
+  fresh.forEach(m => { m.categoria = bankGuess(m); });
+  incoming = fresh;
+  const months = [...new Set(st.movs.map(m => m.fecha.slice(0, 7)))].sort();
+  const row = (k, v) => `<div class="kv"><span>${k}</span><span>${v}</span></div>`;
+  openSheet(`
+    <h2>Importar extracto</h2>
+    <p class="sheet-sub" style="text-transform:capitalize">${esc(span(months))}</p>
+    ${row('Movimientos nuevos', fresh.length)}
+    ${row('Ya importados', st.movs.length - fresh.length)}
+    ${st.skipped ? row('Descartados', st.skipped) : ''}
+    ${row('Nuevos sin categoría', fresh.filter(m => !m.categoria).length)}
+    ${st.skipped ? `<div class="foot">Se descartan los pendientes o revertidos, los de otra divisa y los de la cuenta de ahorro.</div>` : ''}
+    <div class="btns" style="margin-top:20px">
+      ${fresh.length ? `<button class="btn block" id="csv-ok">Importar ${fresh.length} movimiento${fresh.length > 1 ? 's' : ''}</button>`
+        : `<button class="btn block ghost" data-close>Ya estaba todo importado</button>`}
+    </div>`);
+}
+function confirmCsv() {
+  const ms = incoming || [];
+  incoming = null;
+  const ops = [];
+  for (let i = 0; i < ms.length; i += 200) ops.push({ t: 'madd', ms: ms.slice(i, i + 200) });
+  hideSheet();
+  mutate(...ops);
+  toast(`${ms.length} movimiento${ms.length > 1 ? 's' : ''} importado${ms.length > 1 ? 's' : ''}`);
+  if (pending().length) openReview();
+}
+
+// Revisar: lo que no tiene categoría, agrupado por comercio y con lo más caro primero.
+function openReview() {
+  const groups = {};
+  for (const m of pending()) {
+    const k = norm(m.concepto);
+    const g = groups[k] = groups[k] || { id: m.id, concepto: m.concepto, n: 0, total: 0 };
+    g.n++; g.total += m.importe;
+  }
+  const list = Object.values(groups).sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
+  if (!list.length) { hideSheet(); render(); return toast('Todo tiene categoría'); }
+  openSheet(`
+    <h2>Sin categoría</h2>
+    <p class="sheet-sub">${list.length === 1 ? 'Queda un comercio' : `Quedan ${list.length} comercios`}. Al elegir categoría se aplica a todos sus movimientos y a los que lleguen después.</p>
+    <div class="list">${list.map(g => `<button class="row" data-group="${esc(g.id)}">
+      <span class="av bank todo">${g.n}</span>
+      <span class="txt"><div class="c">${esc(g.concepto || 'Sin concepto')}</div><div class="m">${g.n} movimiento${g.n > 1 ? 's' : ''}</div></span>
+      <span class="amt">${g.total > 0 ? '+' : ''}${eur(Math.abs(g.total))}</span>
+    </button>`).join('')}</div>`);
+}
+
+// Elegir la categoría de un movimiento o, desde la revisión, de todos los de un comercio.
+let pick = null;
+function openPick(id, group) {
+  const m = S.movs.find(x => x.id === id);
+  if (!m) return;
+  const same = group ? pending().filter(x => norm(x.concepto) === norm(m.concepto)) : [m];
+  const total = sum(same.map(x => x.importe));
+  pick = { ids: same.map(x => x.id), ym: m.fecha.slice(0, 7), categoria: m.categoria, other: false, rule: !m.categoria, back: !!group };
+  openSheet(`
+    <h2>${esc(m.concepto || 'Sin concepto')}</h2>
+    <p class="sheet-sub">${same.length > 1 ? `${same.length} movimientos` : esc([dayLabel(m.fecha), m.tipo].filter(Boolean).join(' · '))} · ${total > 0 ? '+' : ''}${eur(Math.abs(total))}</p>
+    <form id="fp" autocomplete="off">
+      <label class="fl">Categoría</label>
+      <div class="chips" id="p-cat"></div>
+      <input class="field" id="p-otra" placeholder="Nombre de la categoría" style="margin-top:10px" hidden>
+      <div class="foot">«${SKIP}» es para lo que no es un gasto: vuestros ingresos en la común, traspasos a ahorro o lo que la común os devuelve.</div>
+      <label class="check"><input type="checkbox" id="p-rule" ${pick.rule ? 'checked' : ''}><span>Aplicar siempre a los movimientos que contengan</span></label>
+      <input class="field" id="p-texto" value="${esc(m.concepto)}" aria-label="Texto de la regla">
+      <div class="btns" style="margin-top:22px"><button class="btn block" type="submit">Guardar</button></div>
+    </form>`);
+  paintPick();
+}
+function paintPick() {
+  const cats = categoriesFor(pick.ym);
+  for (const r of S.reglas) if (r.categoria !== SKIP && !cats.some(c => norm(c) === norm(r.categoria))) cats.push(r.categoria);
+  cats.push(SKIP);
+  const other = pick.other || (pick.categoria && !cats.includes(pick.categoria));
+  $('#p-cat').innerHTML = cats.map(c => `<button type="button" class="chip ${!other && pick.categoria === c ? 'on' : ''}" data-pcat="${esc(c)}">${esc(c)}</button>`).join('')
+    + `<button type="button" class="chip ${other ? 'on' : ''}" data-pcat-other>Otra…</button>`;
+  const o = $('#p-otra'); o.hidden = !other;
+  if (other && document.activeElement !== o) o.value = pick.categoria;
+  $('#p-texto').hidden = !$('#p-rule').checked;
+}
+function submitPick() {
+  const categoria = (pick.categoria || '').trim();
+  const texto = $('#p-rule').checked ? $('#p-texto').value.trim() : '';
+  if ($('#p-rule').checked && norm(texto).length < 3) return toast('El texto de la regla es demasiado corto');
+  const ids = new Set(pick.ids), ops = [];
+  if (texto) {
+    ops.push({ t: 'rule', texto, categoria });
+    for (const m of S.movs) if (norm(m.concepto).includes(norm(texto))) ids.add(m.id);
+  }
+  ops.push({ t: 'mcat', ids: [...ids], categoria });
+  const back = pick.back;
+  pick = null;
+  hideSheet();
+  mutate(...ops);
+  toast(ids.size > 1 ? `${ids.size} movimientos actualizados` : 'Categoría guardada');
+  if (back && pending().length) openReview();
+}
+
+function openRules() {
+  const list = S.reglas.slice().sort((a, b) => norm(a.texto).localeCompare(norm(b.texto)));
+  if (!list.length) { hideSheet(); return render(); }
+  openSheet(`
+    <h2>Reglas</h2>
+    <p class="sheet-sub">Los movimientos que contengan el texto reciben esa categoría al importarlos. Quitar una regla no cambia lo ya importado.</p>
+    ${list.map(r => `<div class="rule"><span><b>${esc(r.texto)}</b><small>${esc(r.categoria)}</small></span>
+      <button type="button" class="x" data-rule-del="${esc(r.texto)}" aria-label="Quitar regla">×</button></div>`).join('')}`);
+}
+
 /* ---------- copia de seguridad ---------- */
 function exportData() {
-  const blob = new Blob([JSON.stringify({ app: 'gastos-sa', exportado: new Date().toISOString(), gastos: S.gastos, presupuesto: S.presupuesto }, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify({ app: 'gastos-sa', exportado: new Date().toISOString(), gastos: S.gastos, presupuesto: S.presupuesto, movimientos: S.movs, reglas: S.reglas }, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = `gastos-sa-${today()}.json`; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -755,12 +1087,17 @@ async function importData(file) {
     const gastos = (data.gastos || []).filter(g => g.fecha && isFinite(+g.importe));
     const versions = {};
     for (const r of data.presupuesto || []) if (r.desde && r.categoria) (versions[r.desde] = versions[r.desde] || []).push({ categoria: r.categoria, importe: +r.importe || 0 });
-    if (!gastos.length && !Object.keys(versions).length) return toast('El archivo no contiene datos');
-    if (!confirm(`Se van a importar ${gastos.length} gastos y ${Object.keys(versions).length} presupuesto(s). ¿Continuar?`)) return;
+    const movs = (data.movimientos || []).filter(m => m.id && m.fecha && isFinite(+m.importe))
+      .map(m => ({ id: String(m.id), fecha: String(m.fecha).slice(0, 10), concepto: String(m.concepto || '').trim(), importe: +m.importe, tipo: String(m.tipo || '').trim(), categoria: String(m.categoria || '').trim() }));
+    const reglas = (data.reglas || []).filter(r => r.texto && r.categoria);
+    if (!gastos.length && !Object.keys(versions).length && !movs.length) return toast('El archivo no contiene datos');
+    if (!confirm(`Se van a importar ${gastos.length} adelantos, ${Object.keys(versions).length} presupuesto(s) y ${movs.length} movimientos del banco. ¿Continuar?`)) return;
     const now = new Date().toISOString();
     mutate(
       ...gastos.map(g => ({ t: 'put', g: { id: g.id || uid(), fecha: String(g.fecha).slice(0, 10), concepto: String(g.concepto || '').trim(), importe: +g.importe, pagador: PEOPLE.includes(g.pagador) ? g.pagador : PEOPLE[0], categoria: String(g.categoria || '').trim(), nota: String(g.nota || '').trim(), modificado: g.modificado || now } })),
       ...Object.entries(versions).map(([desde, items]) => ({ t: 'budget', desde, items })),
+      ...Array.from({ length: Math.ceil(movs.length / 200) }, (_, i) => ({ t: 'madd', ms: movs.slice(i * 200, i * 200 + 200) })),
+      ...reglas.map(r => ({ t: 'rule', texto: String(r.texto).trim(), categoria: String(r.categoria).trim() })),
     );
     toast('Importación completada');
   } catch { toast('No se pudo leer el archivo'); }
@@ -776,6 +1113,16 @@ document.addEventListener('click', e => {
   if (t.id === 'fab') return openGasto();
   if (t.id === 'syncbtn' || t.id === 'syncnow') return void sync();
   if (d.edit) return openGasto(d.edit);
+  if (d.src) { ui.src = d.src; ui.q = ''; return render(); }
+  if (d.mov) return openPick(d.mov, false);
+  if (d.group) return openPick(d.group, true);
+  if ('review' in d) return openReview();
+  if ('rules' in d) return openRules();
+  if (d.ruleDel) { mutate({ t: 'rule', texto: d.ruleDel, categoria: '' }); return openRules(); }
+  if (t.id === 'importcsv') return $('#csvfile').click();
+  if (t.id === 'csv-ok') return confirmCsv();
+  if (d.pcat) { pick.categoria = pick.categoria === d.pcat && !pick.other ? '' : d.pcat; pick.other = false; return paintPick(); }
+  if ('pcatOther' in d) { pick.other = !pick.other; pick.categoria = ''; paintPick(); if (pick.other) $('#p-otra').focus(); return; }
   if (d.me) { S.me = d.me; save(); render(); return; }
   if (d.tema) { S.tema = d.tema; save(); applyDesign(); render(); return; }
   if (d.estilo) { S.estilo = d.estilo; save(); applyDesign(); render(); return; }
@@ -788,9 +1135,9 @@ document.addEventListener('click', e => {
   if (d.cat) { form.categoria = form.categoria === d.cat && !form.other ? '' : d.cat; form.other = false; form.auto = false; return paintForm(); }
   if ('catOther' in d) { form.other = !form.other; form.categoria = ''; form.auto = false; paintForm(); if (form.other) $('#f-otra').focus(); return; }
   if (t.id === 'f-del') {
-    if (!confirm('¿Eliminar este gasto?')) return;
+    if (!confirm('¿Eliminar este adelanto?')) return;
     const id = form.id; $('#sheet').hidden = true; document.body.style.overflow = '';
-    mutate({ t: 'del', id }); return toast('Gasto eliminado');
+    mutate({ t: 'del', id }); return toast('Adelanto eliminado');
   }
 
   // presupuesto
@@ -808,22 +1155,26 @@ document.addEventListener('click', e => {
 
 document.addEventListener('input', e => {
   const t = e.target;
-  if (t.id === 'q') { ui.q = t.value; $('#monthpart').hidden = !!ui.q; $('#glist').innerHTML = gastosListHtml(); }
+  if (t.id === 'q') { ui.q = t.value; $('#monthpart').hidden = !!ui.q; $('#glist').innerHTML = listHtml(); }
   else if (t.id === 'f-con') {
     form.concepto = t.value;
     if (form.auto) { form.categoria = guessCategory(t.value, (form.fecha || today()).slice(0, 7)); paintForm(); }
   }
   else if (t.id === 'f-otra') { form.categoria = t.value; }
+  else if (t.id === 'p-otra') { pick.categoria = t.value; }
   else if (t.id === 'f-fec') { form.fecha = t.value; }
   else if (t.closest('#b-rows')) budgetTotals();
 });
 document.addEventListener('change', e => {
   if (e.target.id === 'importfile' && e.target.files[0]) { importData(e.target.files[0]); e.target.value = ''; }
+  if (e.target.id === 'csvfile' && e.target.files[0]) { importCsv(e.target.files[0]); e.target.value = ''; }
+  if (e.target.id === 'p-rule') paintPick();
 });
 document.addEventListener('submit', e => {
   e.preventDefault();
   if (e.target.id === 'fg') submitGasto();
   if (e.target.id === 'fb') submitBudget();
+  if (e.target.id === 'fp') submitPick();
   if (e.target.id === 'fk') submitKey();
 });
 // detalle del gráfico al tocar o pasar por un mes

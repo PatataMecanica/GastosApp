@@ -6,7 +6,8 @@
 │ app.js                   │  POST  │ Apps Script (Code.gs)         │
 │  estado en localStorage  │ ─────► │  comprueba CLAVE              │
 │  cola de cambios         │ ◄───── │  aplica cambios, devuelve todo│
-│ sw.js (caché de la app)  │  JSON  │ Hoja: «Gastos», «Presupuesto» │
+│ sw.js (caché de la app)  │  JSON  │ Hoja: «Gastos», «Presupuesto»,│
+│                          │        │  «Movimientos», «Reglas»      │
 └──────────────────────────┘        └───────────────────────────────┘
         ▲ archivos estáticos
    GitHub Pages (rama main)
@@ -39,6 +40,26 @@ No hay servidor propio. GitHub Pages sirve los archivos y la hoja de Google hace
 
 Todas las filas con el mismo `desde` forman una versión del presupuesto. La vigente en un mes es la de `desde` más reciente que no sea posterior a ese mes; si el mes es anterior a todas, se usa la más antigua.
 
+### Pestaña `Movimientos`
+
+El extracto del banco. Solo sirve para el análisis; no interviene en las aportaciones.
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | texto | `b` más una huella del contenido de la fila del CSV, para que el mismo movimiento reciba siempre el mismo id. |
+| `fecha` | texto `AAAA-MM-DD` | La de finalización, que es la que usa Revolut para decidir en qué extracto entra. |
+| `concepto` | texto | La descripción del banco. |
+| `importe` | número | Con el signo del banco: negativo es un gasto. Incluye la comisión. |
+| `tipo` | texto | «Pago con tarjeta», «Transferencia», «Recarga»… |
+| `categoria` | texto | Vacía mientras no se revise. `No contar` lo deja fuera de los cálculos. |
+
+### Pestaña `Reglas`
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `texto` | texto | Si el concepto de un movimiento lo contiene (sin distinguir mayúsculas ni tildes), se le aplica la regla. Con varias, gana la de texto más largo. |
+| `categoria` | texto | |
+
 ### Estado local
 
 En `localStorage`, bajo la clave `gastos_sa`:
@@ -47,7 +68,8 @@ En `localStorage`, bajo la clave `gastos_sa`:
 |---|---|
 | `me` | Quién usa este móvil |
 | `clave` | Palabra clave |
-| `gastos`, `presupuesto` | Copia de la hoja |
+| `gastos`, `presupuesto`, `movs`, `reglas` | Copia de la hoja |
+| `mv` | Versión de `movs` y `reglas` que se tiene, tal como la dio el script |
 | `queue` | Cambios pendientes de enviar |
 | `lastSync` | Momento de la última sincronización correcta |
 | `tema` | Modo: `auto` (el del sistema), `light` u `dark` |
@@ -67,9 +89,24 @@ Están en `app.js`, en el bloque «cálculo».
 | `contribution(persona, mes)` | `share(mes) − advanced(persona, mes anterior)` |
 | `realSpend(mes)` | Suma, para las dos personas, de `contribution + advanced` del mes |
 
+| `bankSpend(mes)` | Suma cambiada de signo de los movimientos del mes que no son `No contar` |
+| `actualSpend(mes)` | `bankSpend(mes)` más lo adelantado por los dos ese mes |
+
 El «gasto real medio» de un año es la media de `realSpend` sobre los meses transcurridos: desde el primer mes con datos hasta el mes actual.
 
-La media por categoría divide lo adelantado en el año entre esos mismos meses y la compara con la partida del presupuesto vigente en el último de ellos.
+«Gastado de verdad» es la media de `actualSpend` sobre los meses cerrados con extracto; el mes en curso no entra porque su extracto está a medias. La diferencia con `realSpend` en esos mismos meses es lo que la común acumula o pierde.
+
+La media por categoría suma dos medias: lo adelantado en el año entre los meses transcurridos y lo pagado desde la común entre los meses cerrados con extracto. Se compara con la partida del presupuesto vigente en el último mes transcurrido.
+
+### Extracto del banco
+
+`readStatement` (bloque «extracto del banco» de `app.js`) lee el CSV de Revolut: separador `,` o `;`, comillas, cabeceras en español o inglés. Descarta las filas que no están completadas, las de otra divisa y las de la cuenta de ahorro, y se queda con fecha, concepto, tipo e importe (importe menos comisión). El saldo y la fecha de inicio solo se usan para calcular el id.
+
+`bankGuess` decide la categoría al importar:
+
+1. La regla que case con el concepto (`ruleFor`).
+2. `No contar` si el importe es positivo y el tipo no es un reembolso.
+3. `guessCategory` en modo estricto: mismo concepto ya clasificado en un adelanto, o nombre de categoría dentro del concepto. Sin palabras clave, porque aquí nadie revisa la sugerencia.
 
 ### Sugerencia de categoría
 
@@ -96,12 +133,19 @@ Una sola llamada, siempre `POST` a la URL del script, con el cuerpo como texto p
 | `{ "t": "put", "g": {…} }` | Crea el gasto o sustituye el que tenga ese `id` |
 | `{ "t": "del", "id": "…" }` | Elimina el gasto |
 | `{ "t": "budget", "desde": "AAAA-MM", "items": [{ "categoria", "importe" }] }` | Sustituye la versión del presupuesto de ese mes |
+| `{ "t": "madd", "ms": [{ "id", "fecha", "concepto", "importe", "tipo", "categoria" }] }` | Añade los movimientos cuyo `id` no exista; a los demás no los toca |
+| `{ "t": "mcat", "ids": ["…"], "categoria": "…" }` | Pone esa categoría a esos movimientos |
+| `{ "t": "rule", "texto": "…", "categoria": "…" }` | Crea o sustituye la regla de ese texto; con categoría vacía, la quita |
 
 Con `ops` vacío es una lectura. La respuesta trae siempre el estado completo:
 
 ```json
-{ "ok": true, "gastos": [ … ], "presupuesto": [ … ] }
+{ "ok": true, "v": 2, "gastos": [ … ], "presupuesto": [ … ], "mv": "…", "movimientos": [ … ], "reglas": [ … ] }
 ```
+
+Los movimientos son muchos más que los adelantos, así que no viajan siempre. `mv` es una huella (MD5) de `movimientos` y `reglas`; la app envía la que tiene en el campo `mv` de la petición y, si coincide, la respuesta llega sin esas dos listas. Como la huella se calcula leyendo la hoja, los cambios hechos a mano también se detectan.
+
+`v` identifica la versión del script. Si la respuesta no la trae, el script publicado es anterior a los movimientos del banco: la app conserva en la cola las operaciones del banco, avisa con «Falta actualizar el script» y desactiva la importación.
 
 Si falla: `{ "ok": false, "error": "clave" }` cuando la palabra clave no coincide, o un texto con el error en otro caso.
 
@@ -114,7 +158,7 @@ Si falla: `{ "ok": false, "error": "clave" }` cuando la palabra clave no coincid
 
 Se sincroniza al abrir, al volver a la app, al recuperar la conexión, cada 60 segundos con la app visible y al pulsar el indicador de estado. No se sincroniza con un formulario abierto, para no redibujar debajo.
 
-Las tres operaciones son idempotentes, así que reenviar una cola que sí había llegado no duplica nada.
+Todas las operaciones son idempotentes, así que reenviar una cola que sí había llegado no duplica nada.
 
 ### Conflictos
 
@@ -123,7 +167,7 @@ Gana el último que escribe. Si los dos editan el mismo gasto antes de sincroniz
 ### En el script
 
 - `LockService` serializa las peticiones, de modo que dos móviles no escriben a la vez.
-- Cada escritura reordena por fecha y reescribe las dos pestañas completas. Es sencillo y basta para unos cientos de filas al año.
+- Cada escritura reordena y reescribe completas las pestañas afectadas, y solo esas: apuntar un adelanto no reescribe `Movimientos`.
 - Por eso las columnas añadidas a mano en la hoja no se conservan.
 
 ## Seguridad
@@ -147,10 +191,11 @@ Gana el último que escribe. Si los dos editan el mismo gasto antes de sincroniz
 |---|---|
 | Bienvenida y palabra clave | `viewWelcome`, `viewKey` |
 | Inicio | `viewInicio` |
-| Gastos | `viewGastos`, `gastosListHtml` |
+| Adelantos y Banco (selector `ui.src`) | `viewGastos`, `gastosListHtml`, `bancoListHtml` |
 | Análisis | `viewAnalisis`, `barsSvg` |
 | Ajustes | `viewAjustes` |
 | Formularios (hoja inferior) | `openGasto`, `openBudget` |
+| Banco (hoja inferior) | `importCsv` (resumen antes de guardar), `openReview` (sin categoría, por comercio), `openPick` (categoría y regla), `openRules` |
 
 Los gráficos son SVG y HTML hechos a mano. Los nombres de persona se usan como clase CSS para darles color.
 

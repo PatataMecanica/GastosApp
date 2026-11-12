@@ -1,7 +1,8 @@
 /**
  * Gastos_S&A — API mínima sobre Google Sheets.
  *
- * La hoja de cálculo es la base de datos: una pestaña "Gastos" y otra "Presupuesto",
+ * La hoja de cálculo es la base de datos: las pestañas "Gastos" (lo adelantado), "Presupuesto",
+ * "Movimientos" (el extracto del banco) y "Reglas" (qué categoría lleva cada comercio),
  * que se crean solas la primera vez. La app lee y escribe con POST, enviando la palabra clave.
  * Instrucciones de instalación en el README del repositorio.
  */
@@ -10,6 +11,11 @@ var HOJA_GASTOS = 'Gastos';
 var HOJA_PRESU = 'Presupuesto';
 var COLS_G = ['id', 'fecha', 'concepto', 'importe', 'pagador', 'categoria', 'nota', 'modificado'];
 var COLS_P = ['desde', 'categoria', 'importe'];
+var HOJA_MOVS = 'Movimientos';
+var HOJA_REGLAS = 'Reglas';
+var COLS_M = ['id', 'fecha', 'concepto', 'importe', 'tipo', 'categoria'];
+var COLS_R = ['texto', 'categoria'];
+var VERSION = 2; // la app la mira para saber si este script ya entiende los movimientos del banco
 
 function doGet() {
   return salida_({ ok: false, error: 'Esta dirección solo la usa la app.' });
@@ -50,8 +56,11 @@ function responder_(body) {
     var d = leer_();
     var ops = (body && body.ops) || [];
     for (var i = 0; i < ops.length; i++) aplicar_(d, ops[i]);
-    if (ops.length || d.sucio) escribir_(d);
-    out = { ok: true, gastos: d.gastos, presupuesto: d.presupuesto };
+    escribir_(d);
+    // Los movimientos del banco son muchos: solo viajan si la app no tiene ya esta misma versión.
+    var mv = huella_(d);
+    out = { ok: true, v: VERSION, gastos: d.gastos, presupuesto: d.presupuesto, mv: mv };
+    if (!body || body.mv !== mv) { out.movimientos = d.movimientos; out.reglas = d.reglas; }
   } catch (err) {
     out = { ok: false, error: String(err) };
   } finally {
@@ -63,6 +72,11 @@ function responder_(body) {
 function salida_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function huella_(d) {
+  var texto = JSON.stringify([d.movimientos, d.reglas]);
+  return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, texto, Utilities.Charset.UTF_8));
 }
 
 /* ---------- lectura ---------- */
@@ -114,14 +128,15 @@ function num_(v) {
 }
 
 function leer_() {
-  var d = { gastos: [], presupuesto: [], sucio: false };
+  // sucio: qué pestañas hay que volver a escribir
+  var d = { gastos: [], presupuesto: [], movimientos: [], reglas: [], sucio: {} };
 
   var fg = filas_(hoja_(HOJA_GASTOS, COLS_G, 'B'), COLS_G.length);
   for (var i = 0; i < fg.length; i++) {
     var r = fg[i];
     if (r[1] === '' && r[2] === '' && r[3] === '') continue;
     var id = String(r[0]).trim();
-    if (!id) { id = Utilities.getUuid(); d.sucio = true; } // fila añadida a mano
+    if (!id) { id = Utilities.getUuid(); d.sucio.g = true; } // fila añadida a mano
     d.gastos.push({
       id: id,
       fecha: fecha_(r[1]),
@@ -139,6 +154,28 @@ function leer_() {
     var p = fp[j];
     if (p[0] === '' || p[1] === '') continue;
     d.presupuesto.push({ desde: mes_(p[0]), categoria: String(p[1]).trim(), importe: num_(p[2]) });
+  }
+
+  var fm = filas_(hoja_(HOJA_MOVS, COLS_M, 'B'), COLS_M.length);
+  for (var k = 0; k < fm.length; k++) {
+    var m = fm[k];
+    if (m[1] === '' && m[2] === '' && m[3] === '') continue;
+    var mid = String(m[0]).trim();
+    if (!mid) { mid = Utilities.getUuid(); d.sucio.m = true; }
+    d.movimientos.push({
+      id: mid,
+      fecha: fecha_(m[1]),
+      concepto: String(m[2]).trim(),
+      importe: num_(m[3]),
+      tipo: String(m[4]).trim(),
+      categoria: String(m[5]).trim()
+    });
+  }
+
+  var fr = filas_(hoja_(HOJA_REGLAS, COLS_R, 'A'), COLS_R.length);
+  for (var n = 0; n < fr.length; n++) {
+    var texto = String(fr[n][0]).trim();
+    if (texto) d.reglas.push({ texto: texto, categoria: String(fr[n][1]).trim() });
   }
   return d;
 }
@@ -159,18 +196,50 @@ function aplicar_(d, op) {
       modificado: String(op.g.modificado || new Date().toISOString())
     };
     for (var i = 0; i < d.gastos.length; i++) {
-      if (d.gastos[i].id === g.id) { d.gastos[i] = g; return; }
+      if (d.gastos[i].id === g.id) { d.gastos[i] = g; d.sucio.g = true; return; }
     }
     d.gastos.push(g);
+    d.sucio.g = true;
   } else if (op.t === 'del') {
+    d.sucio.g = true;
     d.gastos = d.gastos.filter(function (x) { return x.id !== op.id; });
   } else if (op.t === 'budget' && op.desde) {
+    d.sucio.p = true;
     d.presupuesto = d.presupuesto.filter(function (x) { return x.desde !== op.desde; });
     (op.items || []).forEach(function (it) {
       if (it.categoria) {
         d.presupuesto.push({ desde: String(op.desde), categoria: String(it.categoria), importe: num_(it.importe) });
       }
     });
+  } else if (op.t === 'madd') {
+    // Añade los movimientos que no estén ya: reimportar un extracto no duplica ni pisa categorías.
+    var hay = {};
+    d.movimientos.forEach(function (x) { hay[x.id] = true; });
+    (op.ms || []).forEach(function (m) {
+      if (!m || !m.id || hay[m.id]) return;
+      hay[m.id] = true;
+      d.movimientos.push({
+        id: String(m.id),
+        fecha: String(m.fecha || ''),
+        concepto: String(m.concepto || ''),
+        importe: num_(m.importe),
+        tipo: String(m.tipo || ''),
+        categoria: String(m.categoria || '')
+      });
+      d.sucio.m = true;
+    });
+  } else if (op.t === 'mcat') {
+    var ids = {};
+    (op.ids || []).forEach(function (id) { ids[id] = true; });
+    d.movimientos.forEach(function (x) {
+      if (ids[x.id]) { x.categoria = String(op.categoria || ''); d.sucio.m = true; }
+    });
+  } else if (op.t === 'rule' && op.texto) {
+    // Una regla por texto; sin categoría, se quita.
+    var clave = String(op.texto).trim().toLowerCase();
+    d.reglas = d.reglas.filter(function (x) { return x.texto.toLowerCase() !== clave; });
+    if (op.categoria) d.reglas.push({ texto: String(op.texto).trim(), categoria: String(op.categoria) });
+    d.sucio.r = true;
   }
 }
 
@@ -182,14 +251,26 @@ function volcar_(nombre, cols, colTexto, filas) {
   if (filas.length) h.getRange(2, 1, filas.length, cols.length).setValues(filas);
 }
 
+/** Reescribe solo las pestañas que han cambiado. */
 function escribir_(d) {
-  d.gastos.sort(function (a, b) { return a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0; });
-  volcar_(HOJA_GASTOS, COLS_G, 'B', d.gastos.map(function (g) {
-    return COLS_G.map(function (c) { return g[c]; });
-  }));
-
-  d.presupuesto.sort(function (a, b) { return a.desde < b.desde ? -1 : a.desde > b.desde ? 1 : 0; });
-  volcar_(HOJA_PRESU, COLS_P, 'A', d.presupuesto.map(function (p) {
-    return COLS_P.map(function (c) { return p[c]; });
-  }));
+  var porFecha = function (a, b) { return a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0; };
+  var filas = function (lista, cols) {
+    return lista.map(function (x) { return cols.map(function (c) { return x[c]; }); });
+  };
+  if (d.sucio.g) {
+    d.gastos.sort(porFecha);
+    volcar_(HOJA_GASTOS, COLS_G, 'B', filas(d.gastos, COLS_G));
+  }
+  if (d.sucio.p) {
+    d.presupuesto.sort(function (a, b) { return a.desde < b.desde ? -1 : a.desde > b.desde ? 1 : 0; });
+    volcar_(HOJA_PRESU, COLS_P, 'A', filas(d.presupuesto, COLS_P));
+  }
+  if (d.sucio.m) {
+    d.movimientos.sort(porFecha);
+    volcar_(HOJA_MOVS, COLS_M, 'B', filas(d.movimientos, COLS_M));
+  }
+  if (d.sucio.r) {
+    d.reglas.sort(function (a, b) { return a.texto.toLowerCase() < b.texto.toLowerCase() ? -1 : 1; });
+    volcar_(HOJA_REGLAS, COLS_R, 'A', filas(d.reglas, COLS_R));
+  }
 }
