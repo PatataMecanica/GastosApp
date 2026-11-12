@@ -10,9 +10,9 @@ App de gastos compartidos para dos personas (Adri y Stephy). PWA estática servi
 
 | Archivo | Contenido |
 |---|---|
-| `index.html` | Esqueleto: cabecera, vista, barra de navegación, hoja inferior, aviso |
+| `index.html` | Esqueleto: cabecera, vista, barra de navegación, hoja inferior, aviso. En la cabecera, el script que pone modo y estilo antes de pintar |
 | `app.js` | Toda la lógica: estado, cálculo, sincronización, vistas y eventos |
-| `styles.css` | Estilos, con variables de color para claro y oscuro |
+| `styles.css` | Estilos. Componentes con variables; cada estilo (Pastel, Neón, Ochentas) las redefine para claro y oscuro |
 | `sw.js` | Service worker: guarda la app para abrirla sin conexión |
 | `manifest.webmanifest`, `icons/` | Instalación en la pantalla de inicio |
 | `apps-script/Code.gs` | API que se pega a mano en la hoja de Google |
@@ -29,6 +29,7 @@ node --check app.js           # comprobación de sintaxis
 - No hay pruebas automáticas en el repositorio. Los cambios se han verificado con Playwright contra una hoja simulada: se carga `Code.gs` con `vm` de Node, con dobles de `SpreadsheetApp`, `PropertiesService`, `LockService`, `ContentService` y `Utilities`, y se interceptan las peticiones a `script.google.com`.
 - En local la app habla con la hoja real en cuanto se escribe la palabra clave. Para probar sin tocar datos reales, intercepta las peticiones o no la escribas.
 - El service worker solo se registra bajo `https:`, así que en `localhost` no interfiere.
+- Para revisar el diseño sin pulsar nada, basta con poner `estilo` (`pastel`, `neon`, `retro`) y `tema` (`auto`, `light`, `dark`) en el `localStorage` (`gastos_sa`) antes de cargar.
 - Valores de referencia con el histórico de 2026: en noviembre Adri ingresa 455,39 € y Stephy 314,00 €; en agosto a Adri le sale −140,92 €.
 
 ## Despliegue
@@ -57,4 +58,6 @@ Importa mucho: una de las usuarias es diseñadora. Hay tres estilos, elegibles e
 - **Neón**: futurista, verdes y azules de neón con detalles en rosa, Chakra Petch para títulos y cifras. Vive al final de `styles.css`, bajo `[data-style="neon"]`, y casi todo son variables redefinidas.
 - **Ochentas** (`retro`): estridente y muy colorido a propósito; títulos en rojo neón de noche, atardecer a rayas, sombras duras de colores. Bajo `[data-style="retro"]`, después del Neón.
 
-Usar las variables de `styles.css` en lugar de colores sueltos y comprobar siempre los tres estilos en claro y oscuro a ancho de móvil (390 px). El modo se aplica con `data-theme` en `<html>`, no con `prefers-color-scheme` en el CSS. Los colores de persona de cada estilo están validados para daltonismo; si se cambian, volver a validarlos.
+Cómo está montado y cómo añadir un estilo: sección «Diseño» de [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md). Si se añade uno, hay que tocar `ESTILOS` en `app.js` y también el script de la cabecera de `index.html`.
+
+Usar las variables de `styles.css` en lugar de colores sueltos y comprobar siempre los tres estilos en claro y oscuro a ancho de móvil (390 px). El modo se aplica con `data-theme` en `<html>`, no con `prefers-color-scheme` en el CSS. Los colores de persona de cada estilo están validados para daltonismo; si se cambian, volver a validarlos. Los de Neón son los que menos margen tienen.

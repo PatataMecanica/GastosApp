@@ -54,6 +54,13 @@ Si cambias `Code.gs`, hay que publicar de nuevo: **Implementar → Gestionar imp
 }
 ```
 
+## Aspecto
+
+En **Ajustes → Diseño** cada uno elige cómo se ve la app en su móvil; no afecta al del otro.
+
+- **Modo**: el del sistema, claro u oscuro.
+- **Estilo**: *Pastel* (el de siempre), *Neón* (futurista, verdes y azules con detalles en rosa) u *Ochentas* (estridente y muy colorido).
+
 ## Sin conexión
 
 La app guarda una copia en el móvil. Lo que se apunte sin cobertura queda pendiente y se envía solo al recuperar la conexión.

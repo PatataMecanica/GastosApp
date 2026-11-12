@@ -55,6 +55,11 @@ La app la usan los dos desde su móvil, uno con Android y otra con iPhone.
 - F19. Exportar todo a un archivo e importar una copia.
 - F20. Importar el histórico de 2026 del Excel.
 
+### Diseño
+- F21. Elegir el modo: el del sistema, claro u oscuro.
+- F22. Elegir el estilo visual entre «Pastel», «Neón» y «Ochentas». Todos funcionan en claro y en oscuro.
+- F23. Modo y estilo son de cada móvil: lo que elige uno no cambia lo que ve el otro, y se conservan al cerrar la app.
+
 ## Requisitos no funcionales
 
 - **Multiplataforma**: una sola web instalable en la pantalla de inicio, sin tiendas de aplicaciones.
@@ -93,3 +98,5 @@ Decidido expresamente; no añadir sin preguntar.
 - Uso real en iPhone como app instalada: que la palabra clave y los datos locales se conserven.
 - Comportamiento del script en Google con dos móviles escribiendo a la vez.
 - Revisión de las categorías asignadas al histórico.
+- Los estilos «Neón» y «Ochentas» en los móviles reales: solo se han revisado en capturas a 390 px de ancho.
+- En «Neón», los colores de persona (cian y magenta) se distinguen con daltonismo peor que los de los otros dos estilos, sobre todo en claro. Si molesta, cambiar el par.
